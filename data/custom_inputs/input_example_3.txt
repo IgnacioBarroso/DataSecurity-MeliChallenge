@@ -1,0 +1,37 @@
+Nombre: Meli Partner Gateway
+
+Uso:
+
+Un portal web para que nuestros socios comerciales (B2B) gestionen su inventario, consulten ventas y accedan a reportes.
+
+Permite a los partners subir y bajar masivamente archivos CSV con catálogos de productos.
+
+Los usuarios externos (partners) se autentican con un sistema de usuario/contraseña propio del portal, con recuperación de contraseña vía email.
+
+APIs expuestas:
+
+/api/v1/auth/login: Endpoint de login para partners.
+
+/api/v1/inventory/upload: API para la subida de archivos CSV.
+
+/api/v1/sales/report: Genera y descarga reportes de ventas.
+
+Tecnologías:
+
+Backend: Node.js con Express.
+
+Base de datos: MongoDB.
+
+Frontend: Vue.js.
+
+Servidor web: Nginx como proxy reverso.
+
+Controles actuales:
+
+HTTPS en todas las comunicaciones.
+
+Passwords hasheados con bcrypt en la base de datos.
+
+No hay Web Application Firewall (WAF).
+
+No hay limitación de velocidad (rate limiting) en el login ni en la subida de archivos.

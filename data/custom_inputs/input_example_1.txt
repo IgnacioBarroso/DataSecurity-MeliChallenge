@@ -1,0 +1,49 @@
+Nombre: Internal Payments Hub
+
+Uso:
+
+Permite a operadores, supervisores y auditores internos:
+
+Consultar pagos históricos de clientes y proveedores.
+
+Aprobar, modificar o bloquear pagos de alto riesgo.
+
+Ajustar límites diarios y mensuales de cuentas.
+
+Desbloquear cuentas bajo investigación de fraude.
+
+El sistema expone varias APIs internas (RESTful), utilizadas por otras apps de monitoreo y gestión.
+
+APIs expuestas:
+
+/api/payments/submit: Registrar un nuevo pago desde Admin.
+
+/api/payments/refund: Devolver un pago ante reclamo.
+
+/api/account/limit-adjust: Cambiar límites operativos.
+
+/api/account/audit-log: Descargar logs de actividad.
+
+Los logs operativos se almacenan y pueden ser consultados vía una consola interna.
+
+Accesos restringidos por roles (operator, supervisor, auditor).
+
+Las APIs incluyen endpoints para consultar y modificar datos críticos.
+
+Tecnologías:
+
+Backend: Python+Django REST Framework.
+
+Base de datos: PostgreSQL cifrada.
+
+Frontend: React.
+
+Autenticación: SSO y Google Authenticator.
+
+Controles actuales:
+
+Logs de todas las acciones sensibles.
+
+Control de acceso basado en roles (pero los roles son algo amplios).
+
+Sin scoring automático de anomalías.

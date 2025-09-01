@@ -1,0 +1,59 @@
+Nombre: Employee Management Console
+
+Uso:
+
+Permite a personal de Recursos Humanos, gerentes y administradores internos:
+
+Consultar, actualizar y exportar información personal y salarial de empleados.
+
+Crear, editar y revocar accesos de empleados a sistemas internos.
+
+Gestionar solicitudes y aprobaciones de vacaciones o licencias.
+
+Procesar altas, bajas y traslados entre áreas.
+
+Descargar reportes de datos sensibles (listados de emails, DNI, datos bancarios, direcciones familiares).
+
+Revisar historial de cambios en perfiles de empleados.
+
+El sistema expone varias APIs internas (RESTful), utilizadas por otros módulos administrativos (nómina, IT, seguridad).
+
+APIs expuestas:
+
+/api/employees/get-details: Consultar información completa de un empleado.
+
+/api/employees/update-profile: Modificar datos del perfil.
+
+/api/access-management/grant: Otorgar o revocar accesos a sistemas internos.
+
+/api/reporting/export-data: Exportar datos sensibles en CSV/XLS.
+
+/api/history/track-changes: Consultar historial de cambios de usuario.
+
+Los logs detallados de operaciones se almacenan y son accesibles sólo para auditores o usuarios autorizados.
+
+Accesos restringidos (roles: HR Staff, Manager, Admin, Auditor).
+
+Algunos roles (ej: Manager) pueden aprobar cambios, pero no crear perfiles.
+
+Tecnologías:
+
+Backend: Java Spring Boot.
+
+Base de datos: Oracle con cifrado TDE.
+
+Frontend: Angular.
+
+Autenticación: LDAP corporativo + MFA opcional.
+
+Integración con sistemas de nómina y Active Directory.
+
+Controles actuales:
+
+Logging de cambios sensibles e intentos de acceso no autorizado.
+
+Acceso a datos sensibles basado en roles estrictos (aunque los reportes masivos no están limitados).
+
+No hay alertas sobre descargas inusuales ni controles automáticos sobre exportaciones masivas.
+
+Acceso remoto solo permitido vía VPN.

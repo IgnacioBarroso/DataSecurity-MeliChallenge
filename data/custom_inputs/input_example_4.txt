@@ -1,0 +1,33 @@
+Nombre: LogiCore Legacy System
+
+Uso:
+
+Aplicación de escritorio interna para la gestión de rutas y despachos en nuestros centros de distribución.
+
+Se conecta directamente a la base de datos para leer y escribir órdenes de envío.
+
+No tiene un frontend web; es una aplicación cliente-servidor tradicional.
+
+APIs expuestas:
+
+No expone APIs REST. La comunicación es a través de un protocolo propietario sobre TCP.
+
+Tecnologías:
+
+Aplicación cliente: Visual Basic 6.
+
+Backend: Un servicio de Windows escrito en C++.
+
+Base de datos: Microsoft SQL Server 2008 R2.
+
+Red: Opera exclusivamente en la red interna (intranet).
+
+Controles actuales:
+
+Autenticación contra Active Directory.
+
+La red está segmentada del resto de la red corporativa.
+
+El servidor de base de datos tiene parches de seguridad desactualizados debido a problemas de compatibilidad.
+
+No hay MFA.

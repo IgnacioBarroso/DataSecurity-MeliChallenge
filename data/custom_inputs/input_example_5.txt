@@ -1,0 +1,41 @@
+Nombre: MeliBrain AI Platform
+
+Uso:
+
+Plataforma interna para que los científicos de datos entrenen y desplieguen modelos de Machine Learning.
+
+Permite a los usuarios subir datasets (potencialmente con PII de clientes) para entrenamiento.
+
+Los usuarios pueden provisionar y acceder a notebooks (Jupyter) y clusters de cómputo.
+
+APIs expuestas:
+
+/api/datasets/upload: Sube nuevos datasets al storage.
+
+/api/models/deploy: Despliega un modelo entrenado como un endpoint de inferencia.
+
+/api/notebook/create: Crea una nueva instancia de Jupyter Lab para un usuario.
+
+Tecnologías:
+
+Backend: Python (Flask, Celery).
+
+Orquestación: Kubernetes (EKS en AWS).
+
+Almacenamiento de datos: Buckets S3 de AWS.
+
+Frontend: React.
+
+Base de datos: PostgreSQL para metadatos.
+
+Controles actuales:
+
+Autenticación vía SSO corporativo.
+
+Permisos granulares sobre buckets S3 a través de roles de IAM.
+
+Los notebooks se ejecutan en entornos aislados (contenedores).
+
+No hay un sistema de escaneo de datos para detectar PII en los datasets subidos.
+
+Las claves de AWS para acceso programático se gestionan manualmente por los equipos.
