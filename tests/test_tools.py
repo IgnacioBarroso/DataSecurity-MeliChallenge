@@ -21,11 +21,11 @@ def test_dbir_rag_query_tool_success(mocker):
     from src.tools.dbir_rag_tool import dbir_rag_tool
     result = dbir_rag_tool.run("consulta de prueba")
 
-    # Verificar que la salida es una concatenación de los contenidos
+    # Verificar que la salida es una concatenación de los contenidos y formato en inglés
     assert "Contenido del fragmento 1." in result
     assert "Contenido del fragmento 2." in result
-    assert "--- Fragmento 1 (Página: 1) ---" in result
-    assert "--- Fragmento 2 (Página: 2) ---" in result
+    assert "--- Excerpt 1 (Page: 1) ---" in result
+    assert "--- Excerpt 2 (Page: 2) ---" in result
 
 # --- Tests para mitre_tool.py ---
 

@@ -40,38 +40,37 @@ def query_dbir_report(query: str) -> str:
     Returns:
         Una cadena formateada con los fragmentos de texto más relevantes encontrados.
     """
-    _initialize_retriever()
-    
-    if _collection is None:
-        return "Error: La colección de la base de datos no está disponible. Asegúrate de que la ingesta se haya completado."
-
     try:
-        # 1. Generar el embedding para la consulta del usuario
+        _initialize_retriever()
+        if _collection is None:
+            return "Error: The database collection is not available. Make sure ingestion has been completed."
+
+        # 1. Generate embedding for the user query
         query_embedding = _embeddings.embed_query(query)
 
-        # 2. Realizar la búsqueda de similitud en ChromaDB
+        # 2. Perform similarity search in ChromaDB
         results = _collection.query(
             query_embeddings=[query_embedding],
             n_results=TOP_K_RESULTS
         )
 
-        # 3. Formatear los resultados para el LLM
+        # 3. Format results for the LLM
         if not results or not results.get('documents') or not results['documents'][0]:
-            return "No se encontraron resultados relevantes en el informe DBIR para esta consulta."
+            return "No relevant results found in the DBIR report for this query."
         
-        context_str = "Resultados recuperados del informe DBIR 2025:\n\n"
+        context_str = "Results retrieved from the DBIR 2025 report:\n\n"
         for i, doc in enumerate(results['documents'][0]):
             metadata = results['metadatas'][0][i]
             page_num = metadata.get('page_number', 'N/A')
-            context_str += f"--- Fragmento {i+1} (Página: {page_num}) ---\n"
+            context_str += f"--- Excerpt {i+1} (Page: {page_num}) ---\n"
             context_str += doc
             context_str += "\n\n"
         
         return context_str.strip()
 
     except Exception as e:
-        logging.error(f"Error durante la consulta a la base de datos vectorial: {e}")
-        return "Se produjo un error al intentar recuperar información del informe DBIR."
+        logging.error(f"Error during vector database query: {e}")
+        return "An error occurred while retrieving information from the DBIR report."
 
 
 class DBIRReportQueryTool(BaseTool):

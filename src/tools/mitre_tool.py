@@ -18,12 +18,14 @@ def mitre_attack_query_tool(query: str) -> str:
     Es útil para mapear un vector de amenaza abstracto a TTPs (Tácticas, Técnicas y Procedimientos) concretos.
     Por ejemplo, si el vector es 'Credential Stuffing', esta herramienta puede encontrar 'T1110.003 - Password Spraying'.
     """
+    import logging
     try:
         # Realiza la búsqueda de técnicas que coincidan con la consulta.
         # get_techniques_by_content busca la consulta en nombres, descripciones, etc.
         results = get_attack_client().get_techniques_by_content(query, case_sensitive=False)
         
         if not results:
+            logging.error(f"No se encontraron técnicas de MITRE ATT&CK para la consulta: '{query}'.")
             return f"No se encontraron técnicas de MITRE ATT&CK para la consulta: '{query}'."
 
         # Formatea los resultados para que sean fáciles de procesar por el LLM.
@@ -37,4 +39,5 @@ def mitre_attack_query_tool(query: str) -> str:
         
         return "\n".join(formatted_results)
     except Exception as e:
+        logging.error(f"Ocurrió un error al buscar en MITRE ATT&CK: {e}")
         return f"Ocurrió un error al buscar en MITRE ATT&CK: {e}"

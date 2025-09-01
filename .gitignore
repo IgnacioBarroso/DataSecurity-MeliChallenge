@@ -1,3 +1,5 @@
+# ChromaDB/SQLite vector database
+vector_db/*.sqlite*
 
 # Entornos virtuales y dependencias
 .env
