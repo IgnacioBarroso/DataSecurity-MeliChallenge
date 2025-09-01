@@ -12,7 +12,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_DEFAULT_API_KEY")
 
 # Variable para configurar el nombre del modelo de LLM a utilizar.
 # Esto permite cambiar fácilmente entre diferentes modelos (ej. gemini-1.5-flash, gemini-1.5-pro).
-LLM_MODEL_NAME = "gemini-1.5-pro-latest"
+LLM_MODEL_NAME = "gemini-2.0-flash"
 
 # --- Constantes del Sistema RAG ---
 CHROMA_DB_PATH = "vector_db"

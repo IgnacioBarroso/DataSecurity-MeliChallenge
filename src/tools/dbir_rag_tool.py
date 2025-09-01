@@ -4,7 +4,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from src.config import GEMINI_API_KEY, CHROMA_DB_PATH, COLLECTION_NAME
 import threading
 
-from crewai_tools import BaseTool
+from crewai.tools import BaseTool
 
 # --- Constantes de Configuración ---
 TOP_K_RESULTS = 5 # Número de resultados a recuperar
@@ -23,7 +23,7 @@ def _initialize_retriever():
             if _client is None: # Doble-check locking
                 try:
                     _client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-                    _embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=GEMINI_API_KEY)
+                    _embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004", google_api_key=GEMINI_API_KEY)
                     _collection = _client.get_collection(name=COLLECTION_NAME)
                     logging.info("Retriever inicializado y conectado a ChromaDB.")
                 except Exception as e:

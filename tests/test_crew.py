@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import MagicMock
 from src.main_crew import security_analysis_crew
 from src.models import EcosystemContext, AnalyzedThreats, ClassifiedThreats, FinalSecurityReport, ThreatVector, ClassifiedThreat, MitreTechnique, ActionableRecommendation
 
@@ -46,16 +47,24 @@ def mock_llm_pipeline_output():
             )
         ]
     )
-    return [ecosystem_context, analyzed_threats, validated_threats, classified_threats, final_report]
+    return [ecosystem_context.model_dump_json(), analyzed_threats.model_dump_json(), validated_threats.model_dump_json(), classified_threats.model_dump_json(), final_report.model_dump_json()]
 
 def test_crew_full_integration_flow(mocker, mock_llm_pipeline_output):
     """
     Test de integración completo para el crew de 5 agentes.
     Mockea el LLM para simular la salida de cada agente en secuencia.
     """
-    # Mockear la instancia del LLM que usan todos los agentes
-    mock_llm_instance = mocker.patch("src.agents.llm")
-    mock_llm_instance.invoke.side_effect = mock_llm_pipeline_output
+    mock_litellm_completion_output = []
+    for output in mock_llm_pipeline_output:
+        mock_message = MagicMock()
+        mock_message.content = output
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_litellm_completion_output.append(mock_response)
+
+    litellm_completion_mock = mocker.patch("litellm.completion", side_effect=mock_litellm_completion_output)
 
     # Input inicial para la primera tarea del crew
     inputs = {"user_input_text": "Esta es la descripción de mi app de prueba.", "session_id": "test-session-123"}
@@ -64,8 +73,9 @@ def test_crew_full_integration_flow(mocker, mock_llm_pipeline_output):
     result = security_analysis_crew.kickoff(inputs=inputs)
 
     # Aserciones
-    assert mock_llm_instance.invoke.call_count == 5, "El LLM debe ser invocado una vez por cada uno de los 5 agentes."
-    assert isinstance(result, FinalSecurityReport)
-    assert result.application_name == "App de Test para Crew"
-    assert len(result.prioritized_detectors) == 1
-    assert result.prioritized_detectors[0].detector_name == "Detector de Phishing Avanzado"
+    assert litellm_completion_mock.call_count == 5, "El LLM debe ser invocado una vez por cada uno de los 5 agentes."
+    assert hasattr(result, "pydantic"), "El resultado debe tener el atributo .pydantic"
+    assert isinstance(result.pydantic, FinalSecurityReport)
+    assert result.pydantic.application_name == "App de Test para Crew"
+    assert len(result.pydantic.prioritized_detectors) == 1
+    assert result.pydantic.prioritized_detectors[0].detector_name == "Detector de Phishing Avanzado"

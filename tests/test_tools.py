@@ -6,8 +6,8 @@ from langchain_core.documents import Document
 def test_dbir_rag_query_tool_success(mocker):
     """Verifica que la herramienta RAG formatea correctamente los documentos recuperados."""
     # Mock de las dependencias externas
-    mocker.patch("src.rag_system.retriever.GoogleGenerativeAIEmbeddings")
-    mock_chroma_client = mocker.patch("src.rag_system.retriever.chromadb.PersistentClient")
+    mocker.patch("src.tools.dbir_rag_tool.GoogleGenerativeAIEmbeddings")
+    mock_chroma_client = mocker.patch("src.tools.dbir_rag_tool.chromadb.PersistentClient")
 
     # Simular el retriever y su respuesta
     mock_collection = MagicMock()

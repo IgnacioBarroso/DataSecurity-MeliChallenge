@@ -25,7 +25,7 @@ input_parsing_task = Task(
 # Tarea 1: Analizar Amenazas con RAG
 rag_analysis_task = Task(
     description=(
-        "Tu primera misión es usar el contexto estructurado de la aplicación que has recibido. El nombre de la aplicación es '{application_name}' del contexto. "
+        "Tu primera misión es usar el contexto estructurado de la aplicación que has recibido. Extrae el nombre de la aplicación del contexto. "
         "Luego, utilizando la 'DBIR Report RAG Tool', formula una serie de preguntas clave al informe DBIR 2025 para encontrar "
         "las amenazas y patrones de ataque más relevantes para esa aplicación específica. "
         "Por ejemplo, si la app es una 'Plataforma de Gestión de Pagos', podrías preguntar: "
@@ -102,5 +102,5 @@ security_analysis_crew = Crew(
     agents=[InputParsingAgent, RAGThreatAnalyzerAgent, RAGQualityValidatorAgent, TTPRiskClassifierAgent, ActionableReportingSpecialistAgent],
     tasks=[input_parsing_task, rag_analysis_task, validation_task, ttp_classification_task, reporting_task],
     process=Process.sequential,
-    verbose=2
+    verbose=True
 )

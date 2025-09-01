@@ -7,7 +7,7 @@ from api.main import app
 client = TestClient(app)
 
 
-@patch('api.routers.analysis.run_security_analysis')
+@patch('api.routers.analysis.crew_service.run_security_analysis')
 def test_analyze_endpoint_success(mock_run_analysis):
     """
     Test del "Happy Path" para el endpoint /analyze.
@@ -32,7 +32,7 @@ def test_analyze_endpoint_success(mock_run_analysis):
 
     # 2. Petición a la API
     # Se envía una solicitud POST al endpoint.
-    response = client.post("/analyze", json={"user_input_text": "Describo mi app."})
+    response = client.post("/api/analyze", json={"user_input_text": "Describo mi app."})
 
     # 3. Aserciones (Verificaciones)
     # Se verifica que el servicio fue llamado, que la respuesta es 200 OK,
@@ -44,7 +44,7 @@ def test_analyze_endpoint_success(mock_run_analysis):
     assert response_json["summary"] == "Reporte generado exitosamente por el mock."
 
 
-@patch('api.routers.analysis.run_security_analysis')
+@patch('api.routers.analysis.crew_service.run_security_analysis')
 def test_analyze_endpoint_service_error(mock_run_analysis):
     """
     Test del "Sad Path" para el endpoint /analyze.
@@ -56,9 +56,9 @@ def test_analyze_endpoint_service_error(mock_run_analysis):
     mock_run_analysis.side_effect = ValueError("Error simulado en el crew")
 
     # 2. Petición a la API
-    response = client.post("/analyze", json={"user_input_text": "Input que causa error."})
+    response = client.post("/api/analyze", json={"user_input_text": "Input que causa error."})
 
     # 3. Aserciones
     # Se verifica que el código de estado es 500 y que el mensaje de error es el esperado.
-    assert response.status_code == 500
-    assert response.json() == {"detail": "Ocurrió un error interno inesperado."}
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Error simulado en el crew"}

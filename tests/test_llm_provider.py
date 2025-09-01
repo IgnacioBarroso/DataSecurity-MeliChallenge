@@ -18,20 +18,20 @@ def mock_gemini_api_key_env(mocker):
 def test_get_llm_provider_google(mocker):
     """Verifica que get_llm() devuelve una instancia de ChatGoogleGenerativeAI cuando LLM_PROVIDER es 'google'."""
     # Mockear os.getenv para simular las variables de entorno
-    mocker.patch('os.getenv', side_effect=lambda key, default=None: {
+    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
         "LLM_PROVIDER": "google",
-        "GEMINI_API_KEY": "test_google_key"
     }.get(key, default))
+    mocker.patch('src.llm_provider.GEMINI_API_KEY', 'test_google_key')
 
     # Mockear la clase ChatGoogleGenerativeAI para evitar la instanciación real
-    mock_chat_google_generative_ai = mocker.patch('langchain_google_genai.ChatGoogleGenerativeAI')
+    mock_chat_google_generative_ai = mocker.patch('src.llm_provider.ChatGoogleGenerativeAI')
 
     llm_instance = get_llm()
 
     # Aserciones
-    assert isinstance(llm_instance, MagicMock) # Es un mock, no la clase real
+    assert llm_instance == mock_chat_google_generative_ai.return_value
     mock_chat_google_generative_ai.assert_called_once_with(
-        model="gemini-1.5-pro-latest",
+        model="gemini-2.0-flash",
         verbose=True,
         temperature=0.1,
         google_api_key="test_google_key"
@@ -41,19 +41,19 @@ def test_get_llm_provider_google(mocker):
 def test_get_llm_provider_local(mocker):
     """Verifica que get_llm() devuelve una instancia de Ollama cuando LLM_PROVIDER es 'local'."""
     # Mockear os.getenv
-    mocker.patch('os.getenv', side_effect=lambda key, default=None: {
+    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
         "LLM_PROVIDER": "local",
         "OLLAMA_BASE_URL": "http://localhost:11434",
         "OLLAMA_MODEL": "llama3"
     }.get(key, default))
 
     # Mockear la clase Ollama
-    mock_ollama = mocker.patch('langchain_community.llms.Ollama')
+    mock_ollama = mocker.patch('src.llm_provider.Ollama')
 
     llm_instance = get_llm()
 
     # Aserciones
-    assert isinstance(llm_instance, MagicMock) # Es un mock
+    assert llm_instance == mock_ollama.return_value
     mock_ollama.assert_called_once_with(
         base_url="http://localhost:11434",
         model="llama3"
@@ -63,24 +63,24 @@ def test_get_llm_provider_local(mocker):
 def test_get_llm_fallback_to_google_on_local_error(mocker):
     """Verifica que get_llm() hace fallback a Google si la configuración local de Ollama falla."""
     # Mockear os.getenv para simular configuración local incompleta
-    mocker.patch('os.getenv', side_effect=lambda key, default=None: {
+    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
         "LLM_PROVIDER": "local",
         "OLLAMA_BASE_URL": None, # Simula que falta la URL
         "OLLAMA_MODEL": "llama3",
-        "GEMINI_API_KEY": "fallback_google_key"
     }.get(key, default))
+    mocker.patch('src.llm_provider.GEMINI_API_KEY', 'fallback_google_key')
 
     # Mockear las clases de LLM
-    mock_ollama = mocker.patch('langchain_community.llms.Ollama')
-    mock_chat_google_generative_ai = mocker.patch('langchain_google_genai.ChatGoogleGenerativeAI')
+    mock_ollama = mocker.patch('src.llm_provider.Ollama')
+    mock_chat_google_generative_ai = mocker.patch('src.llm_provider.ChatGoogleGenerativeAI')
 
     llm_instance = get_llm()
 
     # Aserciones
     mock_ollama.assert_not_called() # Ollama no debería ser instanciado
-    assert isinstance(llm_instance, MagicMock) # Es un mock
+    assert llm_instance == mock_chat_google_generative_ai.return_value
     mock_chat_google_generative_ai.assert_called_once_with(
-        model="gemini-1.5-pro-latest",
+        model="gemini-2.0-flash",
         verbose=True,
         temperature=0.1,
         google_api_key="fallback_google_key"
@@ -90,11 +90,11 @@ def test_get_llm_fallback_to_google_on_local_error(mocker):
 def test_get_llm_raises_error_if_google_key_missing(mocker):
     """Verifica que get_llm() lanza un ValueError si GEMINI_API_KEY falta para el proveedor 'google'."""
     # Mockear os.getenv para simular que falta la API key de Gemini
-    mocker.patch('os.getenv', side_effect=lambda key, default=None: {
+    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
         "LLM_PROVIDER": "google",
-        "GEMINI_API_KEY": None # Simula que falta la clave
     }.get(key, default))
+    mocker.patch('src.llm_provider.GEMINI_API_KEY', None)
 
     # Se espera que se lance un ValueError
-    with pytest.raises(ValueError, match="GEMINI_API_KEY no está configurada."):
+    with pytest.raises(ValueError, match="GEMINI_API_KEY no está configurada. Por favor, añádela a tu archivo .env"):
         get_llm()

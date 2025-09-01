@@ -1,9 +1,15 @@
-from crewai_tools import tool
-from attackcti import AttackCti
+from crewai.tools import tool
+from attackcti import attack_client
 
 # Inicializa el cliente para la API de MITRE ATT&CK.
 # Esto se hace una sola vez cuando el módulo es importado.
-attack = AttackCti()
+attack = None
+
+def get_attack_client():
+    global attack
+    if attack is None:
+        attack = attack_client()
+    return attack
 
 @tool("MITRE ATT&CK Technique Query Tool")
 def mitre_attack_query_tool(query: str) -> str:
@@ -15,7 +21,7 @@ def mitre_attack_query_tool(query: str) -> str:
     try:
         # Realiza la búsqueda de técnicas que coincidan con la consulta.
         # get_techniques_by_content busca la consulta en nombres, descripciones, etc.
-        results = attack.get_techniques_by_content(query, case_sensitive=False)
+        results = get_attack_client().get_techniques_by_content(query, case_sensitive=False)
         
         if not results:
             return f"No se encontraron técnicas de MITRE ATT&CK para la consulta: '{query}'."

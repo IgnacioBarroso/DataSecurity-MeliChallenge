@@ -6,6 +6,10 @@ from src.models import FinalSecurityReport
 from src.logging_config import setup_session_logging
 
 def run_security_analysis(user_input_text: str) -> FinalSecurityReport:
+    # Validación temprana del input
+    if not user_input_text or not isinstance(user_input_text, str) or user_input_text.strip() == "":
+        raise ValueError("El texto de entrada para el análisis no puede estar vacío o ser inválido.")
+
     session_id = str(uuid.uuid4())
     setup_session_logging(session_id)
     inputs = {
