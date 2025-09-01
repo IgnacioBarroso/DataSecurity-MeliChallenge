@@ -1,0 +1,47 @@
+{
+    "report_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "application_name": "MeliInternal-FinanceDashboard",
+    "summary": "Este informe describe los 5 principales detectores de seguridad priorizados para desarrollar, basados en un análisis del contexto de la aplicación frente al Verizon DBIR 2025.",
+    "prioritized_detectors": [
+        {
+            "priority": 1,
+            "detector_name": "Monitoreo de Exfiltración de Datos Anómala vía API",
+            "risk_level": "Alto",
+            "threat_vector": "Abuso de privilegios por parte de usuarios internos.",
+            "mitre_techniques": [
+                {
+                    "id": "T1530",
+                    "name": "Data from Cloud Storage Object"
+                },
+                {
+                    "id": "T1048",
+                    "name": "Exfiltration Over Alternative Protocol"
+                }
+            ],
+            "rationale": "La aplicación maneja datos financieros altamente sensibles y tiene roles de usuario escalonados. Un atacante que comprometa una cuenta de 'Gerente' o 'Admin' podría exfiltrar datos críticos a través de la API. Esto se alinea con el patrón de 'Abuso de Privilegios' en el DBIR.",
+            "actionable_steps": [
+                "Implementar un baseline del comportamiento normal de la API por rol de usuario (ej. volumen de datos, frecuencia).",
+                "Crear una alerta en el SIEM que se dispare cuando un usuario exceda en 3 desviaciones estándar su comportamiento normal de descarga de datos.",
+                "Registrar todos los endpoints de la API accedidos y los parámetros utilizados por cada usuario."
+            ]
+        },
+        {
+            "priority": 2,
+            "detector_name": "Intentos de Fuerza Bruta en Endpoint de Autenticación",
+            "risk_level": "Alto",
+            "threat_vector": "Ataques a aplicaciones web para obtener credenciales.",
+            "mitre_techniques": [
+                {
+                    "id": "T1110",
+                    "name": "Brute Force"
+                }
+            ],
+            "rationale": "Dado que la aplicación protege datos financieros, el endpoint de autenticación es un objetivo principal. El DBIR 2025 sigue destacando los ataques de credenciales como un vector de acceso común.",
+            "actionable_steps": [
+                "Implementar limitación de velocidad (rate limiting) en el endpoint de la API de inicio de sesión (ej. 5 intentos fallidos por minuto por IP).",
+                "Desarrollar una regla de detección para alertar sobre múltiples intentos de inicio de sesión fallidos desde una única dirección IP en un corto período de tiempo.",
+                "Asegurar que existan políticas de bloqueo de cuentas después de un número determinado de intentos fallidos."
+            ]
+        }
+    ]
+}

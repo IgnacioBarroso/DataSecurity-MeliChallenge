@@ -1,0 +1,26 @@
+
+# Entornos virtuales y dependencias
+.env
+.venv/
+venv/
+__pycache__/
+
+# Archivos compilados de Python
+*.pyc
+*.pyo
+*.pyd
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# VSCode
+.vscode/
+
+# Base de datos vectorial
+data/output/*
+!data/output/.gitkeep
+!data/examples/

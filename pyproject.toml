@@ -1,0 +1,63 @@
+# pyproject.toml
+[tool.poetry]
+name = "meli-challenge"
+version = "1.2.0"
+description = "Sistema multiagente para el análisis de seguridad y detección de amenazas, basado en el DBIR 2025."
+authors = ["Ignacio Barroso <ignacio_barroso@outlook.com>"]
+readme = "README.md"
+packages = [
+    { include = "src" },
+    { include = "api" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<=3.13"
+crewai = ">=0.165.1"
+crewai-tools = "^0.65.0"
+python-dotenv = "^1.0.1"
+pydantic = "^2.11.0"
+fastapi = "^0.116.0"
+uvicorn = { extras = ["standard"], version = "^0.35.0" }
+langchain-google-genai = "^2.1.0"
+langchain-community = "^0.3.0"
+langchain-ollama = "^0.3.7"
+chromadb = "^0.5.4"
+unstructured = { extras = ["pdf"], version = "^0.18.0" }
+tiktoken = "^0.11.0"
+lxml = "^6.0.1"
+attackcti = "^0.5.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-cov = "^6.2.0"
+pytest-mock = "^3.14.0"
+httpx = "^0.28.0"
+poethepoet = "^0.37.0"
+black = "^24.8.0"
+flake8 = "^7.3.0"
+
+[tool.poe.tasks]
+# Tarea para poblar la base de datos vectorial (ejecutar solo una vez o al actualizar el PDF)
+ingest = { cmd = "python -m src.rag_system.ingest", help = "Procesa el PDF del DBIR y lo carga en la base de datos vectorial." }
+
+# Tarea para iniciar el servidor de la API en modo de desarrollo (con recarga automática)
+api = { cmd = "uvicorn api.main:app --reload --host 0.0.0.0 --port 8000", help = "Inicia el servidor de la API en modo desarrollo." }
+
+# Tarea para ejecutar la herramienta de línea de comandos
+cli = { cmd = "python main.py", help = "Ejecuta el análisis desde la CLI. Uso: poetry run poe cli -- <ruta_al_archivo>" }
+
+# Tareas de Testing
+test = { cmd = "pytest -v", help = "Ejecuta la suite de tests completa." }
+test-cov = { cmd = "pytest --cov=src --cov=api --cov-report=term-missing", help = "Ejecuta los tests y muestra el reporte de cobertura." }
+
+# Tareas de Calidad de Código
+lint = { cmd = "flake8 src api tests", help = "Revisa el código en busca de errores de estilo (linter)." }
+format = { cmd = "black src api tests", help = "Formatea todo el código automáticamente con Black." }
+setup = [
+    { cmd = "poetry install", help = "Instala todas las dependencias del proyecto." },
+    { cmd = "poe ingest", help = "Puebla la base de datos RAG." }
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
