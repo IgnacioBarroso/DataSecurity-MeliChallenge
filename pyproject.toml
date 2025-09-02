@@ -22,12 +22,15 @@ uvicorn = { extras = ["standard"], version = "^0.35.0" }
 langchain-community = "^0.3.0"
 langchain-openai = "^0.3.32"
 langchain-ollama = "^0.3.7"
-chromadb = ">=0.5.23,<0.6.0"  # Compatible con crewai moderno
+chromadb = "^1.0.20"  # Compatible con crewai moderno
 unstructured = { extras = ["pdf"], version = "^0.18.0" }
 tiktoken = "^0.7.0"
 lxml = "^6.0.1"
 attackcti = "^0.5.4"
 pytest-asyncio = "^1.1.0"
+
+sentence-transformers = "^2.7.0"
+langchain-chroma = "^0.2.5"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -38,6 +41,7 @@ httpx = "^0.28.0"
 poethepoet = "^0.37.0"
 black = "^24.8.0"
 flake8 = "^7.3.0"
+ragas = "*"
 
 [tool.poe.tasks]
 # Tarea para poblar la base de datos vectorial (ejecutar solo una vez o al actualizar el PDF)

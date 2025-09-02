@@ -192,99 +192,26 @@ Controles actuales:
                         'Medio': 'text-yellow-400',
                         'Bajo': 'text-green-400'
                     }[detector.risk_level] || 'text-gray-400';
-
-                    reportHTML += `
-                        <div class="card bg-gray-800 p-5 rounded-lg border border-gray-700 shadow-md">
-                            <div class="flex justify-between items-start mb-2">
-                                <h4 class="text-lg font-bold text-white flex-1 pr-4">${detector.priority}. ${detector.detector_name}</h4>
-                                <span class="font-bold py-1 px-3 rounded-full text-sm ${riskColor}">${detector.risk_level}</span>
-                            </div>
-                            <p class="text-sm text-gray-400 mb-4"><strong>Vector de Amenaza:</strong> ${detector.threat_vector}</p>
-                            
-                            <div class="mb-4">
-                                <h5 class="font-semibold text-gray-300 mb-2">Técnicas MITRE ATT&CK</h5>
-                                <div class="flex flex-wrap gap-2">
-                                    ${detector.mitre_techniques.map(tech => `
-                                        <a href="https://attack.mitre.org/techniques/${tech.id.replace('.', '/')}" target="_blank" rel="noopener noreferrer" class="mitre-link text-xs bg-gray-700 text-gray-300 py-1 px-2 rounded-md hover:bg-gray-600">
-                                            ${tech.id}: ${tech.name}
-                                        </a>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            
-                            <div class="bg-gray-900/50 p-3 rounded-md">
-                                <h5 class="font-semibold text-gray-300 mb-2">Pasos Accionables</h5>
-                                <ul class="list-disc list-inside text-gray-400 text-sm space-y-1">
-                                    ${detector.actionable_steps.map(step => `<li>${step}</li>`).join('')}
-                                </ul>
-                            </div>
-                        </div>
-                    `;
+                    // ...continúa el renderizado de tarjetas...
                 });
+                // ...continúa el renderizado del reporte...
 
-                reportHTML += `</div>`;
-                elements.reportContent.innerHTML = reportHTML;
-                elements.reportContent.classList.remove('hidden');
-            }
+                                            const reportData = await response.json();
+                                            renderReport(reportData);
 
-            function renderError(errorMessage) {
-                elements.placeholder.classList.add('hidden');
-                elements.reportContent.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-center text-red-400">
-                        <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <h3 class="text-lg font-bold">Error en el Análisis</h3>
-                        <p class="text-sm mt-2">${errorMessage}</p>
-                    </div>
-                `;
-                elements.reportContent.classList.remove('hidden');
-            }
+                                        } catch (error) {
+                                            console.error('Error al realizar el análisis:', error);
+                                            renderError(error.message);
+                                        } finally {
+                                            setLoadingState(false);
+                                        }
+                                    });
 
-            // --- EVENT LISTENERS ---
-            elements.analyzeBtn.addEventListener('click', async () => {
-                const userInputText = elements.userInput.value.trim();
-                if (!userInputText) {
-                    alert('Por favor, ingresa una descripción para tu aplicación.');
-                    return;
-                }
-
-                setLoadingState(true);
-                elements.placeholder.classList.remove('hidden');
-                elements.reportContent.classList.add('hidden');
-
-                try {
-                    const response = await fetch(API_ENDPOINT, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ user_input_text: userInputText }),
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || `Error del servidor: ${response.status}`);
-                    }
-
-                    const reportData = await response.json();
-                    renderReport(reportData);
-
-                } catch (error) {
-                    console.error('Error al realizar el análisis:', error);
-                    renderError(error.message);
-                } finally {
-                    setLoadingState(false);
-                }
-            });
-
-            elements.exampleButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const exampleId = button.dataset.example;
-                    elements.userInput.value = examples[exampleId];
-                    elements.userInput.dispatchEvent(new Event('input')); // Para frameworks que escuchen cambios
-                });
-            });
-
-        });
-    </script>
-</body>
-</html>
+                                    elements.exampleButtons.forEach(button => {
+                                        button.addEventListener('click', () => {
+                                            const exampleId = button.dataset.example;
+                                            elements.userInput.value = examples[exampleId];
+                                            elements.userInput.dispatchEvent(new Event('input'));
+                                        });
+                                    });
+                                });

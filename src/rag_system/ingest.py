@@ -1,29 +1,35 @@
-
 import os
 import logging
-import chromadb
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from src.config import GEMINI_API_KEY, CHROMA_DB_PATH, COLLECTION_NAME
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_community.vectorstores.utils import filter_complex_metadata
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from src.config import settings
+
 
 # Configuración de logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # --- Constantes de Configuración ---
 DBIR_PDF_PATH = "data/input/2025-dbir-data-breach-investigations-report.pdf"
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
+
 
 def ingest_dbir_report():
+
     """
-    Procesa el informe DBIR en PDF, lo divide en fragmentos, genera embeddings y los almacena en ChromaDB.
+    Procesa el informe DBIR en PDF, lo divide jerárquicamente y lo indexa usando ParentDocumentRetriever.
     """
     if not os.path.exists(DBIR_PDF_PATH):
         logging.error(f"El informe DBIR no se encuentra en la ruta: {DBIR_PDF_PATH}")
         return
 
-    logging.info(f"Iniciando la ingesta del documento: {DBIR_PDF_PATH}")
+    logging.info(f"Iniciando la ingesta jerárquica del documento: {DBIR_PDF_PATH}")
+
 
     # 1. Cargar el documento PDF usando Unstructured
     try:
@@ -34,73 +40,61 @@ def ingest_dbir_report():
         logging.error(f"Error al cargar el PDF con Unstructured: {e}")
         return
 
-    # 2. Dividir el texto en fragmentos (chunks)
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        length_function=len,
+    # 1b. Filtrar metadatos complejos para compatibilidad con ChromaDB
+    for doc in documents:
+        if hasattr(doc, 'metadata') and isinstance(doc.metadata, dict):
+            doc.metadata = clean_metadata(doc.metadata)
+
+    # 1c. Validar dimensiones del modelo de embedding vs Chroma
+    # (Esto se valida automáticamente en Chroma/OpenAIEmbeddings, pero se puede loggear)
+    embedding_model = "text-embedding-3-small"
+    from pydantic import SecretStr
+    embedding = OpenAIEmbeddings(model=embedding_model, api_key=SecretStr(settings.OPENAI_API_KEY))
+    # El tamaño de embedding para text-embedding-3-small es 1536 (según la doc oficial)
+    expected_dim = 1536
+    # Chroma no requiere especificar dimensión si se usa embedding_function, pero lo logueamos
+    logging.info(f"Usando modelo de embedding '{embedding_model}' con dimensión esperada: {expected_dim}")
+
+    # 2. Definir los splitters jerárquicos
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+
+    # 3. Configurar el vectorstore y el docstore
+    from pydantic import SecretStr
+    vectorstore = Chroma(
+        collection_name="dbir_hierarchical_v2",
+        embedding_function=embedding,
+        persist_directory=settings.CHROMA_DB_PATH
     )
-    chunks = text_splitter.split_documents(documents)
-    logging.info(f"Documento dividido en {len(chunks)} fragmentos.")
+    store = InMemoryStore()
 
-    if not chunks:
-        logging.error("No se generaron fragmentos del documento. Verifique el contenido del PDF.")
-        return
+    # 4. Instanciar y poblar el ParentDocumentRetriever
+    retriever = ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=store,
+        child_splitter=child_splitter,
+        parent_splitter=parent_splitter,
+    )
+    logging.info("Añadiendo documentos al retriever. Este proceso realizará la división y vectorización...")
+    retriever.add_documents(documents)
+    logging.info("--- Ingesta jerárquica completada exitosamente! ---")
 
-    # 3. Configurar el modelo de embeddings
-    try:
-    embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004", google_api_key=GEMINI_API_KEY)
-    except Exception as e:
-        logging.error(f"Error al inicializar el modelo de embeddings: {e}")
-        return
 
-    # 4. Crear o cargar la base de datos vectorial ChromaDB persistente
-    try:
-        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-        # Borra la colección si ya existe para asegurar una ingesta limpia
-        if COLLECTION_NAME in [c.name for c in client.list_collections()]:
-            logging.warning(f"La colección '{COLLECTION_NAME}' ya existe. Se eliminará y se volverá a crear.")
-            client.delete_collection(name=COLLECTION_NAME)
-        
-        collection = client.create_collection(name=COLLECTION_NAME)
-        logging.info(f"Colección '{COLLECTION_NAME}' creada/cargada en ChromaDB.")
-    except Exception as e:
-        logging.error(f"Error al conectar con ChromaDB: {e}")
-        return
-
-    # 5. Generar embeddings y almacenar en la colección
-    logging.info("Generando embeddings y guardando en la base de datos. Esto puede tardar unos minutos...")
-    
-    total_chunks = len(chunks)
-    for i, chunk in enumerate(chunks):
-        try:
-            # Extraer contenido y metadatos
-            content = chunk.page_content
-            metadata = chunk.metadata
-            
-            # Crear un ID único para el chunk
-            chunk_id = f"chunk_{i}"
-            
-            # Generar embedding para el contenido
-            embedding = embeddings.embed_query(content)
-            
-            # Añadir a la colección de ChromaDB
-            collection.add(
-                ids=[chunk_id],
-                embeddings=[embedding],
-                documents=[content],
-                metadatas=[metadata]
-            )
-            
-            if (i + 1) % 100 == 0:
-                logging.info(f"Procesado {i + 1}/{total_chunks} fragmentos...")
-
-        except Exception as e:
-            logging.error(f"Error procesando el fragmento {i}: {e}")
-            continue
-
-    logging.info("--- ¡Ingesta completada exitosamente! ---")
-    logging.info(f"Total de fragmentos en la colección '{COLLECTION_NAME}': {collection.count()}")
+# --- Filtro robusto de metadatos para ChromaDB ---
+def clean_metadata(metadata: dict) -> dict:
+    # Solo conservar claves relevantes y valores simples
+    allowed_keys = {'page_number', 'source', 'section', 'title', 'text', 'filename', 'filetype', 'category', 'subsection', 'author', 'date'}
+    clean = {}
+    for k, v in metadata.items():
+        if k in allowed_keys and isinstance(v, (str, int, float, bool)):
+            clean[k] = v
+        # Si la clave es relevante pero el valor es complejo, lo convertimos a string
+        elif k in allowed_keys:
+            clean[k] = str(v)
+        # Si la clave no es relevante pero el valor es simple, lo dejamos solo si no hay nada mejor
+        elif isinstance(v, (str, int, float, bool)):
+            clean[k] = v
+    return clean
 
 if __name__ == "__main__":
     ingest_dbir_report()

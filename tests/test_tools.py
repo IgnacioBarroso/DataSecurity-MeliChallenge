@@ -1,33 +1,40 @@
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings # Importar OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings  # Importar OpenAIEmbeddings
 
 # --- Tests para dbir_rag_tool.py ---
+
 
 def test_dbir_rag_query_tool_success(mocker):
     """Verifica que la herramienta RAG formatea correctamente los documentos recuperados."""
     # Mock de las dependencias externas
-    mocker.patch("src.tools.retriever.OpenAIEmbeddings") # Mockear OpenAIEmbeddings
+    mocker.patch("src.tools.retriever.OpenAIEmbeddings")  # Mockear OpenAIEmbeddings
     mocker.patch("src.tools.retriever.chromadb.PersistentClient")
 
     # Mockear query_dbir_report para que devuelva el contenido exitoso
-    mocker.patch("src.tools.retriever.query_dbir_report", return_value=(
-        "Resultados recuperados del informe DBIR 2025:\n\n" +
-        "--- Fragmento 1 (Página: 1) ---\nContenido del fragmento 1.\n\n" +
-        "--- Fragmento 2 (Página: 2) ---\nContenido del fragmento 2."
-    ))
+    mocker.patch(
+        "src.tools.retriever.query_dbir_report",
+        return_value=(
+            "Resultados recuperados del informe DBIR 2025:\n\n"
+            + "--- Fragmento 1 (Página: 1) ---\nContenido del fragmento 1.\n\n"
+            + "--- Fragmento 2 (Página: 2) ---\nContenido del fragmento 2."
+        ),
+    )
 
     # Importar la herramienta después de mockear
     from src.tools.dbir_rag_tool import dbir_rag_tool
+
     result = dbir_rag_tool.run("consulta de prueba")
 
     # Verificar que la salida es una concatenación de los contenidos y formato en español
     assert "Contenido del fragmento 1." in result
     assert "Contenido del fragmento 2." in result
-    assert "--- Fragmento 1 (Página: 1) ---" in result # Aserción corregida a español
-    assert "--- Fragmento 2 (Página: 2) ---" in result # Aserción corregida a español
+    assert "--- Fragmento 1 (Página: 1) ---" in result  # Aserción corregida a español
+    assert "--- Fragmento 2 (Página: 2) ---" in result  # Aserción corregida a español
+
 
 # --- Tests para mitre_tool.py ---
+
 
 def test_mitre_attack_query_tool_success(mocker):
     """Verifica que la herramienta de MITRE formatea correctamente los resultados."""
@@ -43,10 +50,12 @@ def test_mitre_attack_query_tool_success(mocker):
 
     # Importar la herramienta después de mockear
     from src.tools.mitre_tool import mitre_attack_query_tool
+
     result = mitre_attack_query_tool.run("phishing")
 
     assert "ID: T1234" in result
     assert "Nombre: Técnica de Prueba" in result
+
 
 def test_mitre_attack_query_tool_no_results(mocker):
     """Verifica el mensaje cuando no se encuentran resultados."""
@@ -54,6 +63,7 @@ def test_mitre_attack_query_tool_no_results(mocker):
     mock_attack_cti.get_techniques_by_content.return_value = []
 
     from src.tools.mitre_tool import mitre_attack_query_tool
+
     result = mitre_attack_query_tool.run("consulta inexistente")
 
     assert "No se encontraron técnicas de MITRE ATT&CK" in result

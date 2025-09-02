@@ -1,20 +1,21 @@
 """
 Router para el endpoint de análisis de seguridad.
 """
+
 import logging
 from fastapi import APIRouter, HTTPException
 from api.services import crew_service
-from api.schemas.analysis import AnalysisRequest
-from src.models import SecurityReportInput, FinalSecurityReport # Importar SecurityReportInput desde src.models
-import json
+
+from api.schemas.analysis import AnalysisRequest, AnalysisResponse
 
 router = APIRouter()
 
+
 @router.post(
     "/analyze",
-    response_model=dict,
+    response_model=AnalysisResponse,
     summary="Ejecutar análisis de seguridad con arquitectura MCP",
-    description="Inicia el pipeline de agentes de IA (arquitectura MCP) para analizar el contexto de una aplicación y generar un reporte de seguridad."
+    description="Inicia el pipeline de agentes de IA (arquitectura MCP) para analizar el contexto de una aplicación y generar un reporte de seguridad.",
 )
 async def analyze_ecosystem(request: AnalysisRequest):
     """
@@ -22,23 +23,17 @@ async def analyze_ecosystem(request: AnalysisRequest):
     """
     try:
         logging.info("Recibida solicitud de análisis para la arquitectura MCP...")
-        
-        report_input = SecurityReportInput(text=request.user_input_text)
-        
-        result_str = await crew_service.run_analysis_crew(report_input)
-        
-        try:
-            result_dict = json.loads(result_str)
-        except json.JSONDecodeError:
-            logging.error("El resultado del crew no es un JSON válido.")
-            result_dict = {"raw_output": result_str}
-
+        result = await crew_service.run_analysis_crew(request.user_input)
         logging.info(f"Análisis MCP completado.")
-        return result_dict
-
+        return AnalysisResponse(**result)
     except ValueError as ve:
         logging.error(f"Input inválido: {ve}")
         raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
-        logging.critical(f"Error inesperado en el endpoint /analyze: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ocurrió un error interno inesperado en el servidor de análisis.")
+        logging.critical(
+            f"Error inesperado en el endpoint /analyze: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Ocurrió un error interno inesperado en el servidor de análisis.",
+        )

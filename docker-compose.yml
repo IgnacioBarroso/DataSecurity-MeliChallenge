@@ -1,24 +1,28 @@
+
 version: '3.8'
 
 services:
   datasec-agent:
-    # Nombre de la imagen que se construirá.
     image: meli-datasec-challenge-app
-    # Contexto de construcción (el directorio actual que contiene el Dockerfile).
     build: .
-    # Carga las variables de entorno desde el archivo.env en la raíz del proyecto.
     env_file:
-      -.env
-    # Monta los volúmenes para persistir datos entre ejecuciones.
-    # -./data:/app/data: Mapea la carpeta 'data' local a '/app/data' en el contenedor.
-    #   Esto permite que la app lea el input y escriba el output en tu máquina.
-    # -./logs:/app/logs: Mapea la carpeta 'logs' para que los archivos de log
-    #   sean accesibles desde fuera del contenedor.
+      - .env
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./vector_db:/app/vector_db
     ports:
       - "8000:8000"
-    # Asegura que el contenedor se detenga si ya está corriendo antes de iniciar uno nuevo.
     stop_grace_period: 1s
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  ollama_data:
+
+# Nota: Para usar Ollama desde la app, la variable OLLAMA_BASE_URL debe ser http://ollama:11434

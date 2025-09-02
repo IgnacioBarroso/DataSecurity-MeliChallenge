@@ -1,13 +1,13 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routers import analysis
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="DataSec AI Agent API",
         description="API para ejecutar el análisis de seguridad con agentes de IA.",
-        version="1.1.0"
+        version="1.1.0",
     )
 
     app.add_middleware(

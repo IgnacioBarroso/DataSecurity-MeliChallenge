@@ -15,6 +15,7 @@ Realizar un sistema multiagente que posea las características mencionadas a con
 **Sistema:** La solución debe ser una arquitectura multiagente compuesta por 3 agentes específicos que implementen un pipeline secuencial de análisis de vectores de ataque/riesgos, comparativa con el contexto del ecosistema a evaluar, y generación de un reporte de detectores prioritarios.
 
 Este sistema debe tomar como dato el informe "Data Breach Investigations Report 2025" el cual será la base para comparar e identificar necesidades de implementación.
+Reporte: /data/input/2025-dbir-data-breach-investigations-report.pdf.
 
 **Tareas del flujo de agentes:**
 
@@ -42,6 +43,7 @@ Este sistema debe tomar como dato el informe "Data Breach Investigations Report 
 * **Creación de MCP/s para agentes:** Desarrollar o utilizar al menos 1 MCPs (Model Context Protocols) existentes para gestionar/otorgar múltiples herramientas a los agentes del sistema para las tareas necesarias de cada rol.  
   * Al menos 1 MCP es requerido, se permite utilizar MCP desarrollados por la comunidad:  
     * Ej: https://github.com/search?q=mitre-attack-mcp\&type=repositories.
+    * Investigar este proyecto: https://github.com/stoyky/mitre-attack-mcp.
 
 **Entregables**
 
@@ -69,12 +71,8 @@ A tener en cuenta:
 * El "input" no será dado para este challenge ya que será la forma de evaluar el sistema, se espera que el candidato modele una serie de inputs a fin de probar su solución antes de la entrega.
 
 **Ejemplos de input para candidatos**
-
-¡Gracias por tu interés en sumarte a nuestro equipo\!
-
-Cuando finalices, te pedimos que nos envíes tu resolución y luego agendaremos un espacio de 30' para que, junto con la presentación de tu análisis, puedas ampliar:
-
-* Qué decisiones tomaste al construir tu desafío.  
-* Otros puntos que consideres importantes.
-
-¡Manos a la obra\!
+/data/custom_inputs/input_example_1.txt
+/data/custom_inputs/input_example_2.txt
+/data/custom_inputs/input_example_3.txt
+/data/custom_inputs/input_example_4.txt
+/data/custom_inputs/input_example_5.txt
