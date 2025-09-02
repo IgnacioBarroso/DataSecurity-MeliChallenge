@@ -1,81 +1,88 @@
+"""
+Test para el orquestador MCP y el flujo entre crews.
+"""
 import pytest
-from unittest.mock import MagicMock
-from src.main_crew import security_analysis_crew
+from unittest.mock import MagicMock, patch
 from src.models import EcosystemContext, AnalyzedThreats, ClassifiedThreats, FinalSecurityReport, ThreatVector, ClassifiedThreat, MitreTechnique, ActionableRecommendation
+import logging
 
 @pytest.fixture
-def mock_llm_pipeline_output():
-    """Prepara una secuencia de salidas Pydantic simuladas para todo el pipeline del crew."""
-    # 1. Salida del InputParsingAgent
-    ecosystem_context = EcosystemContext(
-        application_name="App de Test para Crew",
-        usage_description="Una app de prueba.",
-        exposed_apis=["/api/data"],
-        technologies=["Python"],
-        current_controls=["MFA"]
+def mock_crew_outputs():
+    """Prepara los objetos Pydantic que simulan la salida de cada sub-crew."""
+    # Salida de la primera crew (threat_intel)
+    analyzed_threats = AnalyzedThreats(
+        threats=[ThreatVector(threat_vector="Phishing", justification="Justificación de Phishing.")]
     )
-    # 2. Salida del RAGThreatAnalyzerAgent
-    analyzed_threats = AnalyzedThreats(threats=[ThreatVector(threat_vector="Ataques de Phishing", justification="El DBIR menciona el phishing como amenaza común.")])
-    # 3. Salida del RAGQualityValidatorAgent (pasa los datos sin cambios)
-    validated_threats = analyzed_threats
-    # 4. Salida del TTPRiskClassifierAgent
+    # Salida de la segunda crew (mitre_classification)
     classified_threats = ClassifiedThreats(
-        classified_threats=[
-            ClassifiedThreat(
-                threat_vector="Ataques de Phishing",
-                justification="El DBIR menciona el phishing como amenaza común.",
-                mitre_techniques=[MitreTechnique(id="T1566", name="Phishing", description="...")],
-                risk_level="Alto",
-                risk_rationale="El phishing puede llevar al robo de credenciales."
-            )
-        ]
+        classified_threats=[ClassifiedThreat(
+            threat_vector="Phishing", 
+            justification="Justificación de Phishing.",
+            mitre_techniques=[MitreTechnique(id="T1566", name="Phishing", description="...")],
+            risk_level="Alto",
+            risk_rationale="Riesgo alto por posible robo de credenciales."
+        )]
     )
-    # 5. Salida del ActionableReportingSpecialistAgent
+    # Salida de la tercera crew (reporting)
     final_report = FinalSecurityReport(
-        report_id="final-report-mock-id",
-        application_name="App de Test para Crew",
-        summary="Resumen del reporte final.",
+        report_id="mock-report-123",
+        application_name="App Mockeada",
+        summary="Resumen del reporte mockeado.",
         prioritized_detectors=[
             ActionableRecommendation(
-                priority=1,
-                detector_name="Detector de Phishing Avanzado",
-                risk_level="Alto",
-                threat_vector="Ataques de Phishing",
-                mitre_techniques=[MitreTechnique(id="T1566", name="Phishing", description="...")],
-                rationale="El phishing es un vector de entrada crítico.",
-                actionable_steps=["Implementar filtros de email avanzados."]
+                priority=1, detector_name="Detector de Phishing", risk_level="Alto",
+                threat_vector="Phishing", mitre_techniques=[],
+                rationale="...", actionable_steps=[]
             )
         ]
     )
-    return [ecosystem_context.model_dump_json(), analyzed_threats.model_dump_json(), validated_threats.model_dump_json(), classified_threats.model_dump_json(), final_report.model_dump_json()]
+    return [analyzed_threats, classified_threats, final_report]
 
-def test_crew_full_integration_flow(mocker, mock_llm_pipeline_output):
+def test_mcp_orchestration_flow(mocker, mock_crew_outputs):
     """
-    Test de integración completo para el crew de 5 agentes.
-    Mockea el LLM para simular la salida de cada agente en secuencia.
+    Testea el flujo de orquestación en `run_mcp_analysis`.
+    Verifica que el output de una crew se pasa correctamente a la siguiente.
     """
-    mock_litellm_completion_output = []
-    for output in mock_llm_pipeline_output:
-        mock_message = MagicMock()
-        mock_message.content = output
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        mock_litellm_completion_output.append(mock_response)
+    # 1. Preparar los mocks de las sub-crews
+    mock_threat_intel_crew = MagicMock()
+    mock_mitre_crew = MagicMock()
+    mock_reporting_crew = MagicMock()
 
-    litellm_completion_mock = mocker.patch("litellm.completion", side_effect=mock_litellm_completion_output)
+    # 2. Configurar el valor de retorno de kickoff() para cada mock
+    mock_threat_intel_crew.kickoff.return_value = mock_crew_outputs[0]
+    mock_mitre_crew.kickoff.return_value = mock_crew_outputs[1]
+    mock_reporting_crew.kickoff.return_value = mock_crew_outputs[2]
 
-    # Input inicial para la primera tarea del crew
-    inputs = {"user_input_text": "Esta es la descripción de mi app de prueba.", "session_id": "test-session-123"}
+    # 3. Mockear las funciones que crean las crews para que devuelvan nuestros mocks
+    mocker.patch('src.mcp_crews.create_threat_intel_crew', return_value=mock_threat_intel_crew)
+    mocker.patch('src.mcp_crews.create_mitre_classification_crew', return_value=mock_mitre_crew)
+    mocker.patch('src.mcp_crews.create_reporting_crew', return_value=mock_reporting_crew)
 
-    # Ejecutar el crew
-    result = security_analysis_crew.kickoff(inputs=inputs)
+    # 4. Importar y ejecutar la función a probar
+    from src.mcp_crews import run_mcp_analysis
+    user_input = "Describo mi app para el test de orquestación."
+    
+    # Crear un logger mock para pasar a la función
+    mock_logger = MagicMock(spec=logging.Logger)
 
-    # Aserciones
-    assert litellm_completion_mock.call_count == 5, "El LLM debe ser invocado una vez por cada uno de los 5 agentes."
-    assert hasattr(result, "pydantic"), "El resultado debe tener el atributo .pydantic"
-    assert isinstance(result.pydantic, FinalSecurityReport)
-    assert result.pydantic.application_name == "App de Test para Crew"
-    assert len(result.pydantic.prioritized_detectors) == 1
-    assert result.pydantic.prioritized_detectors[0].detector_name == "Detector de Phishing Avanzado"
+    final_result_json = run_mcp_analysis(user_input, mock_logger)
+
+    # 5. Aserciones
+    # Verificar que cada crew fue llamada una vez
+    mock_threat_intel_crew.kickoff.assert_called_once()
+    mock_mitre_crew.kickoff.assert_called_once()
+    mock_reporting_crew.kickoff.assert_called_once()
+
+    # Verificar que el input de la segunda crew es el output de la primera
+    mitre_input = mock_mitre_crew.kickoff.call_args[1]['inputs']
+    assert mitre_input['threats'][0]['threat_vector'] == "Phishing"
+
+    # Verificar que el input de la tercera crew es el output de la segunda
+    reporting_input = mock_reporting_crew.kickoff.call_args[1]['inputs']
+    assert reporting_input['classified_threats'][0]['risk_level'] == "Alto"
+
+    # Verificar que el resultado final es el JSON del reporte de la última crew
+    import json
+    final_result = json.loads(final_result_json)
+    assert final_result['report_id'] == "mock-report-123"
+    assert final_result['summary'] == "Resumen del reporte mockeado."

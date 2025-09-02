@@ -1,31 +1,31 @@
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings # Importar OpenAIEmbeddings
 
 # --- Tests para dbir_rag_tool.py ---
 
 def test_dbir_rag_query_tool_success(mocker):
     """Verifica que la herramienta RAG formatea correctamente los documentos recuperados."""
     # Mock de las dependencias externas
-    mocker.patch("src.tools.dbir_rag_tool.GoogleGenerativeAIEmbeddings")
-    mock_chroma_client = mocker.patch("src.tools.dbir_rag_tool.chromadb.PersistentClient")
+    mocker.patch("src.tools.retriever.OpenAIEmbeddings") # Mockear OpenAIEmbeddings
+    mocker.patch("src.tools.retriever.chromadb.PersistentClient")
 
-    # Simular el retriever y su respuesta
-    mock_collection = MagicMock()
-    mock_collection.query.return_value = {
-        'documents': [['Contenido del fragmento 1.', 'Contenido del fragmento 2.']],
-        'metadatas': [[{'page_number': 1}, {'page_number': 2}]]
-    }
-    mock_chroma_client.return_value.get_collection.return_value = mock_collection
+    # Mockear query_dbir_report para que devuelva el contenido exitoso
+    mocker.patch("src.tools.retriever.query_dbir_report", return_value=(
+        "Resultados recuperados del informe DBIR 2025:\n\n" +
+        "--- Fragmento 1 (Página: 1) ---\nContenido del fragmento 1.\n\n" +
+        "--- Fragmento 2 (Página: 2) ---\nContenido del fragmento 2."
+    ))
 
     # Importar la herramienta después de mockear
     from src.tools.dbir_rag_tool import dbir_rag_tool
     result = dbir_rag_tool.run("consulta de prueba")
 
-    # Verificar que la salida es una concatenación de los contenidos y formato en inglés
+    # Verificar que la salida es una concatenación de los contenidos y formato en español
     assert "Contenido del fragmento 1." in result
     assert "Contenido del fragmento 2." in result
-    assert "--- Excerpt 1 (Page: 1) ---" in result
-    assert "--- Excerpt 2 (Page: 2) ---" in result
+    assert "--- Fragmento 1 (Página: 1) ---" in result # Aserción corregida a español
+    assert "--- Fragmento 2 (Página: 2) ---" in result # Aserción corregida a español
 
 # --- Tests para mitre_tool.py ---
 

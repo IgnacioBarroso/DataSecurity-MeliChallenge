@@ -1,100 +1,72 @@
-
+"""
+Tests para el proveedor de LLM.
+"""
 import pytest
 from unittest.mock import patch, MagicMock
-
-# Importar las clases de LLM que esperamos instanciar
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.llms import Ollama
-
-# Importar la función a probar
+from langchain_openai import ChatOpenAI
+from langchain_ollama.llms import OllamaLLM
 from src.llm_provider import get_llm
+from src.config import Settings
 
-# Mockear la variable GEMINI_API_KEY para evitar errores de configuración real
-@pytest.fixture(autouse=True)
-def mock_gemini_api_key_env(mocker):
-    mocker.patch('src.config.GEMINI_API_KEY', 'mock_gemini_key')
+def test_get_llm_provider_openai(mocker):
+    """Verifica que get_llm() devuelve una instancia de ChatOpenAI cuando LLM_PROVIDER es 'openai'."""
+    # 1. Configurar un mock del objeto Settings
+    mock_settings = Settings(
+        LLM_PROVIDER="openai",
+        OPENAI_API_KEY="test_openai_key",
+        OPENAI_MODEL_NAME="gpt-4o",
+        TEMPERATURE=0.5
+    )
+    mocker.patch('src.llm_provider.settings', mock_settings)
 
+    # 2. Mockear la clase ChatOpenAI para verificar su instanciación
+    mock_chat_openai = mocker.patch('src.llm_provider.ChatOpenAI')
 
-def test_get_llm_provider_google(mocker):
-    """Verifica que get_llm() devuelve una instancia de ChatGoogleGenerativeAI cuando LLM_PROVIDER es 'google'."""
-    # Mockear os.getenv para simular las variables de entorno
-    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
-        "LLM_PROVIDER": "google",
-    }.get(key, default))
-    mocker.patch('src.llm_provider.GEMINI_API_KEY', 'test_google_key')
-
-    # Mockear la clase ChatGoogleGenerativeAI para evitar la instanciación real
-    mock_chat_google_generative_ai = mocker.patch('src.llm_provider.ChatGoogleGenerativeAI')
-
+    # 3. Llamar a la función
     llm_instance = get_llm()
 
-    # Aserciones
-    assert llm_instance == mock_chat_google_generative_ai.return_value
-    mock_chat_google_generative_ai.assert_called_once_with(
-        model="gemini-2.0-flash",
-        verbose=True,
-        temperature=0.1,
-        google_api_key="test_google_key"
+    # 4. Aserciones
+    assert llm_instance == mock_chat_openai.return_value
+    mock_chat_openai.assert_called_once_with(
+        api_key="test_openai_key",
+        model="gpt-4o",
+        temperature=0.5
     )
 
-
-def test_get_llm_provider_local(mocker):
-    """Verifica que get_llm() devuelve una instancia de Ollama cuando LLM_PROVIDER es 'local'."""
-    # Mockear os.getenv
-    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
-        "LLM_PROVIDER": "local",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "OLLAMA_MODEL": "llama3"
-    }.get(key, default))
-
-    # Mockear la clase Ollama
-    mock_ollama = mocker.patch('src.llm_provider.Ollama')
+def test_get_llm_provider_local_ollama(mocker):
+    """
+    Verifica que get_llm() devuelve una instancia de OllamaLLM cuando LLM_PROVIDER es 'local'.
+    """
+    mock_settings = Settings(
+        LLM_PROVIDER="local",
+        OLLAMA_BASE_URL="http://localhost:11434",
+        OLLAMA_MODEL="llama3",
+        TEMPERATURE=0.5,
+        OPENAI_API_KEY="dummy_key"  # Pydantic requiere que los campos no opcionales existan
+    )
+    mocker.patch('src.llm_provider.settings', mock_settings)
+    mock_ollama = mocker.patch('src.llm_provider.OllamaLLM')
 
     llm_instance = get_llm()
 
-    # Aserciones
     assert llm_instance == mock_ollama.return_value
     mock_ollama.assert_called_once_with(
         base_url="http://localhost:11434",
-        model="llama3"
+        model="llama3",
+        temperature=0.5
     )
 
-
-def test_get_llm_fallback_to_google_on_local_error(mocker):
-    """Verifica que get_llm() hace fallback a Google si la configuración local de Ollama falla."""
-    # Mockear os.getenv para simular configuración local incompleta
-    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
-        "LLM_PROVIDER": "local",
-        "OLLAMA_BASE_URL": None, # Simula que falta la URL
-        "OLLAMA_MODEL": "llama3",
-    }.get(key, default))
-    mocker.patch('src.llm_provider.GEMINI_API_KEY', 'fallback_google_key')
-
-    # Mockear las clases de LLM
-    mock_ollama = mocker.patch('src.llm_provider.Ollama')
-    mock_chat_google_generative_ai = mocker.patch('src.llm_provider.ChatGoogleGenerativeAI')
-
-    llm_instance = get_llm()
-
-    # Aserciones
-    mock_ollama.assert_not_called() # Ollama no debería ser instanciado
-    assert llm_instance == mock_chat_google_generative_ai.return_value
-    mock_chat_google_generative_ai.assert_called_once_with(
-        model="gemini-2.0-flash",
-        verbose=True,
-        temperature=0.1,
-        google_api_key="fallback_google_key"
+def test_get_llm_provider_unsupported(mocker):
+    """
+    Verifica que se lanza un ValueError si el proveedor no es soportado.
+    """
+    mock_settings = Settings(
+        LLM_PROVIDER="unsupported_provider",
+        OPENAI_API_KEY="dummy_key"
     )
+    mocker.patch('src.llm_provider.settings', mock_settings)
 
-
-def test_get_llm_raises_error_if_google_key_missing(mocker):
-    """Verifica que get_llm() lanza un ValueError si GEMINI_API_KEY falta para el proveedor 'google'."""
-    # Mockear os.getenv para simular que falta la API key de Gemini
-    mocker.patch('src.llm_provider.os.getenv', side_effect=lambda key, default=None: {
-        "LLM_PROVIDER": "google",
-    }.get(key, default))
-    mocker.patch('src.llm_provider.GEMINI_API_KEY', None)
-
-    # Se espera que se lance un ValueError
-    with pytest.raises(ValueError, match="GEMINI_API_KEY no está configurada. Por favor, añádela a tu archivo .env"):
+    with pytest.raises(ValueError) as excinfo:
         get_llm()
+    
+    assert "Proveedor de LLM no soportado: unsupported_provider" in str(excinfo.value)

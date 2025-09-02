@@ -1,35 +1,34 @@
-
+"""
+Servicio para orquestar y ejecutar los crews de análisis de seguridad bajo el patrón MCP.
+"""
+from src.mcp_crews import run_mcp_analysis
+from src.models import SecurityReportInput # Importar desde src.models
+from src.logging_config import setup_agent_trace_logging
+import asyncio
 import uuid
-import logging
-from src.main_crew import security_analysis_crew
-from src.models import FinalSecurityReport
-from src.logging_config import setup_session_logging
 
-def run_security_analysis(user_input_text: str) -> FinalSecurityReport:
-    # Validación temprana del input
-    if not user_input_text or not isinstance(user_input_text, str) or user_input_text.strip() == "":
-        raise ValueError("El texto de entrada para el análisis no puede estar vacío o ser inválido.")
-
-    session_id = str(uuid.uuid4())
-    setup_session_logging(session_id)
-    inputs = {
-        "user_input_text": user_input_text,
-        "session_id": session_id
-    }
-
-    logging.info(f"Lanzando el Crew de análisis para la sesión {session_id}...")
+async def run_analysis_crew(report_input: SecurityReportInput) -> str:
+    """
+    Ejecuta el análisis de seguridad utilizando la arquitectura MCP requerida por el challenge.
     
+    Esta función invoca el orquestador secuencial de `mcp_crews.py` en un hilo separado
+    para no bloquear el event loop de FastAPI.
+    """
+    session_id = str(uuid.uuid4())
+    agent_trace_logger = setup_agent_trace_logging(session_id)
+
     try:
-        result = security_analysis_crew.kickoff(inputs=inputs)
-        logging.info(f"El Crew para la sesión {session_id} ha finalizado exitosamente.")
+        result = await asyncio.to_thread(run_mcp_analysis, report_input.text, agent_trace_logger)
 
-        if not isinstance(result, FinalSecurityReport):
-            logging.error(f"Resultado inesperado del crew para la sesión {session_id}: el tipo fue {type(result)} en lugar de FinalSecurityReport.")
-            raise ValueError("El análisis no pudo generar un reporte con el formato válido.")
-
-        result.report_id = session_id
+        if not isinstance(result, str):
+            if hasattr(result, 'raw') and result.raw:
+                return result.raw
+            if hasattr(result, 'json'):
+                return result.json()
+            return str(result)
+        
         return result
 
     except Exception as e:
-        logging.error(f"Ocurrió un error catastrófico durante la ejecución del crew para la sesión {session_id}: {e}", exc_info=True)
+        agent_trace_logger.error(f"Error crítico durante la ejecución de la crew MCP para sesión {session_id}: {e}", exc_info=True)
         raise

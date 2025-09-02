@@ -1,31 +1,44 @@
+"""
+Router para el endpoint de análisis de seguridad.
+"""
 import logging
 from fastapi import APIRouter, HTTPException
 from api.services import crew_service
 from api.schemas.analysis import AnalysisRequest
-from src.models import FinalSecurityReport
+from src.models import SecurityReportInput, FinalSecurityReport # Importar SecurityReportInput desde src.models
+import json
 
 router = APIRouter()
 
 @router.post(
     "/analyze",
-    response_model=FinalSecurityReport,
-    summary="Ejecutar análisis de seguridad",
-    description="Inicia el pipeline de agentes de IA para analizar el contexto de una aplicación y generar un reporte de seguridad."
+    response_model=dict,
+    summary="Ejecutar análisis de seguridad con arquitectura MCP",
+    description="Inicia el pipeline de agentes de IA (arquitectura MCP) para analizar el contexto de una aplicación y generar un reporte de seguridad."
 )
-def analyze_ecosystem(request: AnalysisRequest):
+async def analyze_ecosystem(request: AnalysisRequest):
     """
-    Endpoint para recibir el contexto de la aplicación y devolver el reporte de seguridad.
+    Endpoint asíncrono para recibir el contexto de la aplicación y devolver el reporte de seguridad.
     """
     try:
-        logging.info("Recibida solicitud de análisis...")
-        report = crew_service.run_security_analysis(request.user_input_text)
-        logging.info(f"Análisis completado. Devolviendo reporte ID: {report.report_id}")
-        return report
+        logging.info("Recibida solicitud de análisis para la arquitectura MCP...")
+        
+        report_input = SecurityReportInput(text=request.user_input_text)
+        
+        result_str = await crew_service.run_analysis_crew(report_input)
+        
+        try:
+            result_dict = json.loads(result_str)
+        except json.JSONDecodeError:
+            logging.error("El resultado del crew no es un JSON válido.")
+            result_dict = {"raw_output": result_str}
+
+        logging.info(f"Análisis MCP completado.")
+        return result_dict
+
     except ValueError as ve:
-        # Error conocido y manejado, como un resultado inválido del crew.
-        logging.error(f"Error de validación durante el análisis: {ve}")
+        logging.error(f"Input inválido: {ve}")
         raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
-        # Error inesperado y no controlado.
         logging.critical(f"Error inesperado en el endpoint /analyze: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ocurrió un error interno inesperado en el servidor de análisis.")

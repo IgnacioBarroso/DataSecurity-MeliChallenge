@@ -49,7 +49,7 @@ def ingest_dbir_report():
 
     # 3. Configurar el modelo de embeddings
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=GEMINI_API_KEY)
+    embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004", google_api_key=GEMINI_API_KEY)
     except Exception as e:
         logging.error(f"Error al inicializar el modelo de embeddings: {e}")
         return

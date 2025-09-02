@@ -1,19 +1,38 @@
-import os
-from dotenv import load_dotenv
+"""
+Configuración centralizada de la aplicación utilizando Pydantic Settings.
 
-# Carga las variables de entorno desde un archivo .env
-# Es útil para mantener las claves de API y otras configuraciones seguras y fuera del código fuente.
-load_dotenv()
+Este módulo carga la configuración desde variables de entorno y/o un archivo .env,
+proporcionando un objeto `settings` único, validado y con tipado estático para toda la aplicación.
+"""
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Obtiene la clave de API de Google desde las variables de entorno.
-# Si no se encuentra, se utiliza un valor predeterminado para evitar errores,
-# aunque la aplicación fallará si se intenta usar la API sin una clave válida.
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_DEFAULT_API_KEY")
+class Settings(BaseSettings):
+    """
+    Define las variables de configuración de la aplicación.
 
-# Variable para configurar el nombre del modelo de LLM a utilizar.
-# Esto permite cambiar fácilmente entre diferentes modelos (ej. gemini-1.5-flash, gemini-1.5-pro).
-LLM_MODEL_NAME = "gemini-2.0-flash"
+    Pydantic leerá automáticamente estas variables desde el entorno o un archivo .env.
+    """
+    # Configuración del modelo de lenguaje
+    LLM_PROVIDER: str = "openai"
+    TEMPERATURE: float = 0.1
 
-# --- Constantes del Sistema RAG ---
-CHROMA_DB_PATH = "vector_db"
-COLLECTION_NAME = "dbir_2025"
+    # Configuración de OpenAI
+    OPENAI_API_KEY: str
+    OPENAI_MODEL_NAME: str = "gpt-4o"
+
+    # Configuración de Google Gemini (opcional, para futura referencia)
+    GEMINI_API_KEY: str | None = None
+
+    # Configuración de Ollama (opcional, para futura referencia)
+    OLLAMA_BASE_URL: str | None = None
+    OLLAMA_MODEL: str | None = None
+
+    # Configuración del sistema RAG
+    CHROMA_DB_PATH: str = "vector_db"
+    COLLECTION_NAME: str = "dbir_2025"
+
+    # Cargar desde el archivo .env en la raíz del proyecto
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
+
+# Crear una única instancia de la configuración para ser importada en otros módulos
+settings = Settings()

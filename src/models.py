@@ -52,3 +52,7 @@ class FinalSecurityReport(BaseModel):
     application_name: str = Field(description="El nombre de la aplicación analizada.")
     summary: str = Field(description="Un resumen ejecutivo del reporte, destacando los hallazgos más importantes.")
     prioritized_detectors: List[ActionableRecommendation] = Field(description="La lista de los 5 detectores más importantes a desarrollar.")
+
+# Modelo para el input del servicio, que es más simple que el request de la API
+class SecurityReportInput(BaseModel):
+    text: str

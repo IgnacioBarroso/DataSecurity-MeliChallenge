@@ -1,12 +1,12 @@
 import chromadb
 import logging
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from src.config import GEMINI_API_KEY
+from langchain_openai import OpenAIEmbeddings
+from src.config import settings
 import threading
 
 # --- Constantes de Configuración ---
-CHROMA_DB_PATH = "vector_db"
-COLLECTION_NAME = "dbir_2025"
+CHROMA_DB_PATH = settings.CHROMA_DB_PATH
+COLLECTION_NAME = settings.COLLECTION_NAME
 TOP_K_RESULTS = 5 # Número de resultados a recuperar
 
 # Inicialización Singleton para el cliente y el modelo de embeddings
@@ -23,8 +23,9 @@ def _initialize_retriever():
             if client is None: # Doble-check locking
                 try:
                     client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-                    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=GEMINI_API_KEY)
-                    collection = client.get_collection(name=COLLECTION_NAME)
+                    # Usar OpenAIEmbeddings con la API Key de OpenAI
+                    embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+                    collection = client.get_or_create_collection(name=COLLECTION_NAME) # Usar get_or_create_collection
                     logging.info("Retriever inicializado y conectado a ChromaDB.")
                 except Exception as e:
                     logging.error(f"Error al inicializar el retriever. ¿Ejecutaste el script de ingesta? Error: {e}")
