@@ -1,11 +1,11 @@
 
 # --- Integración con el pipeline RAG avanzado ---
-from src.rag_system.retriever_factory import get_rag_chain, create_advanced_retriever
-from src.rag_system.retriever_factory import CohereRerank  # may be None
-from src.config import settings
+import logging
+import math
 from langchain_openai import OpenAIEmbeddings
-import math
-import math
+from src.config import settings
+from src.rag_system.retriever_factory import CohereRerank  # may be None
+from src.rag_system.retriever_factory import create_advanced_retriever, get_rag_chain
 
 
 
@@ -27,7 +27,6 @@ def query_dbir_report(query: str) -> str:
         result = rag_chain.invoke(query)
         return result if result else "No relevant results found in the DBIR report for this query."
     except Exception as e:
-        import logging
         logging.error(f"Error during the query to the advanced RAG system: {e}")
         return "An error occurred while trying to retrieve information from the DBIR report."
 
@@ -81,7 +80,6 @@ async def ask_rag(question: str) -> dict:
         answer = chain.invoke(question)
         return {"answer": answer, "context": context}
     except Exception as e:
-        import logging
         logging.error(f"Error in ask_rag: {e}")
         return {"answer": "", "context": ""}
 
@@ -135,6 +133,5 @@ async def get_docs_with_scores(question: str) -> list[dict]:
             })
         return results
     except Exception as e:
-        import logging
         logging.error(f"Error in get_docs_with_scores: {e}")
         return results

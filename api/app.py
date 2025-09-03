@@ -6,6 +6,9 @@ from api.routers import analysis
 from api.routers import rag as rag_router
 from pathlib import Path
 import socket
+import urllib.request
+import json as _json
+from src.config import settings
 
 
 def create_app() -> FastAPI:
@@ -39,9 +42,6 @@ def create_app() -> FastAPI:
 
     @app.get("/health", summary="Healthcheck", tags=["Status"])
     def healthcheck():
-        from src.config import settings
-        import urllib.request
-        import json as _json
         status = {
             "api": "ok",
             "redis": "configured" if settings.REDIS_HOST else "disabled",

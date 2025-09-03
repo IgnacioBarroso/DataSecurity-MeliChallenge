@@ -4,6 +4,7 @@ Servicio para ejecutar la SecurityAnalysisCrew (MCP de 3 agentes).
 
 import uuid
 import asyncio
+import json
 
 from src.mcp_crews import SecurityAnalysisCrew, run_mcp_analysis
 from src.logging_config import setup_session_logging as setup_agent_trace_logging
@@ -24,17 +25,37 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
     else:
         user_input_str = str(user_input)
     result = await asyncio.to_thread(run_mcp_analysis, user_input_str, logger)
-    import json
+    # Normalizar a dict si vino como string/TaskOutput serializado
+    normalized: dict | None = None
+    if isinstance(result, dict):
+        normalized = result
+    elif isinstance(result, str):
+        try:
+            obj = json.loads(result)
+            if isinstance(obj, dict):
+                raw = obj.get("raw")
+                if isinstance(raw, str):
+                    try:
+                        data = json.loads(raw)
+                        if isinstance(data, dict):
+                            normalized = data
+                    except Exception:
+                        normalized = obj
+                else:
+                    normalized = obj
+        except Exception:
+            normalized = None
     # Loggear el resultado crudo para depuración
     print("\n[DEBUG] Raw pipeline result:")
-    print(json.dumps(result, ensure_ascii=False, indent=2) if isinstance(result, dict) else str(result))
+    print(json.dumps(normalized, ensure_ascii=False, indent=2) if isinstance(normalized, dict) else str(result))
     # Validate expected fields for FinalReport
     expected_fields = ["application_name", "summary", "prioritized_detectors"]
-    if isinstance(result, dict):
-        missing = [f for f in expected_fields if f not in result or not result.get(f)]
+    target = normalized if normalized is not None else (result if isinstance(result, dict) else None)
+    if isinstance(target, dict):
+        missing = [f for f in expected_fields if f not in target or not target.get(f)]
         if missing:
             print(f"[WARNING] FinalReport is missing fields: {missing}")
-        return {"report_json": json.dumps(result, ensure_ascii=False, indent=2), "session_id": session_id, "missing_fields": missing}
+        return {"report_json": json.dumps(target, ensure_ascii=False, indent=2), "session_id": session_id, "missing_fields": missing}
     # Si no es un dict, retornar advertencia
     return {"report_json": "{}", "session_id": session_id, "missing_fields": expected_fields}
 

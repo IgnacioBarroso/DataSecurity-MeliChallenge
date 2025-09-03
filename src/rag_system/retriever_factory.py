@@ -1,5 +1,9 @@
 import logging
 from langchain_chroma import Chroma
+try:
+    from langchain_chroma import Settings as ChromaSettings  # type: ignore
+except Exception:
+    ChromaSettings = None  # type: ignore
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
@@ -17,11 +21,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.rag_system.redis_docstore import RedisDocStore
 
 def _build_vectorstore(chroma_path, collection_name, embedding_fn):
-    try:
-        from langchain_chroma import Settings as ChromaSettings  # type: ignore
-    except Exception:
-        ChromaSettings = None  # type: ignore
-
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
     chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
 

@@ -1,7 +1,3 @@
-"""
-Router para el endpoint de análisis de seguridad.
-"""
-
 import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from api.services import crew_service
@@ -81,8 +77,7 @@ async def analyze_ecosystem_upload(
     except HTTPException:
         raise
     except Exception as e:
-        import logging as _logging
-        _logging.critical(
+        logging.critical(
             f"Error inesperado en el endpoint /analyze-upload: {e}", exc_info=True
         )
         raise HTTPException(

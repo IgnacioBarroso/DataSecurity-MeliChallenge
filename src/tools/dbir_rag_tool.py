@@ -3,27 +3,12 @@ from src.tools import retriever
 from crewai.tools import tool
 from typing import Any
 from src.logging_config import logging
-from sentence_transformers import CrossEncoder
-import logging as py_logging
 from src.trace import get_trace_logger
 
 # Inicializa logger específico para la herramienta
 logger = logging.getLogger(__name__)
 
-# Modelo CrossEncoder para re-ranking
-_cross_encoder = None
-
-
-def get_cross_encoder():
-    global _cross_encoder
-    if _cross_encoder is None:
-        try:
-            _cross_encoder = CrossEncoder("mixedbread-ai/mxbai-rerank-xsmall-v1")
-            logger.info("CrossEncoder para re-ranking inicializado correctamente.")
-        except Exception as e:
-            logger.error(f"Error al inicializar CrossEncoder: {e}")
-            raise
-    return _cross_encoder
+_cross_encoder = None  # Deprecated: not used currently
 
 
 def _dbir_rag_tool(query: Any) -> str:

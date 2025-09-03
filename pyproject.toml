@@ -1,7 +1,7 @@
 # pyproject.toml
 [tool.poetry]
 name = "meli-challenge"
-version = "1.2.0"
+version = "1.0.0"
 description = "Sistema multiagente para el análisis de seguridad y detección de amenazas, basado en el DBIR 2025."
 authors = ["Ignacio Barroso <ignacio_barroso@outlook.com>"]
 readme = "README.md"

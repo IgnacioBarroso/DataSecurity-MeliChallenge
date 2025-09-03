@@ -5,16 +5,19 @@ Este módulo define el patrón de orquestación secuencial requerido por el chal
 _donde el output de una sub-crew se convierte en el input de la siguiente.
 """
 
-from crewai import Crew, Process, Task, Agent
-from src.tools.dbir_rag_tool import dbir_rag_tool
-from src.tools.mitre_tool import mitre_attack_query_tool, get_mitre_technique_details
-from src.llm_provider import get_llm
-from src.models import ThreatFindings, EnrichedFindings, FinalReport
+import json
 import logging
-from src.agents import threat_analyzer_agent, risk_classifier_agent, reporting_agent
-import json
+from crewai import Crew, Process, Task, Agent
+from src.agents import reporting_agent, risk_classifier_agent, threat_analyzer_agent
+from src.llm_provider import get_llm
+from src.models import EnrichedFindings, FinalReport, ThreatFindings
+from src.tools.dbir_rag_tool import dbir_rag_tool
+from src.tools.mitre_tool import get_mitre_technique_details, mitre_attack_query_tool
 from src.trace import set_trace_logger
-import json
+try:
+    from pydantic import BaseModel  # type: ignore
+except Exception:
+    BaseModel = object  # fallback
 
 
 llm = get_llm()
@@ -70,7 +73,6 @@ class SecurityAnalysisCrew:
             # Log de inputs/outputs de cada tarea (best-effort) usando JsonFormatter extras
             def _safe_preview(obj):
                 try:
-                    from pydantic import BaseModel  # type: ignore
                     if isinstance(obj, BaseModel):
                         return obj.model_dump()  # serializable
                 except Exception:
@@ -116,7 +118,6 @@ class SecurityAnalysisCrew:
 
         # Intentar retornar JSON estricto del resultado final
         try:
-            from pydantic import BaseModel  # type: ignore
             if hasattr(reporting_task, "output") and isinstance(reporting_task.output, BaseModel):
                 return reporting_task.output.model_dump_json()
         except Exception:
@@ -165,7 +166,40 @@ def run_mcp_analysis(user_input: str, agent_trace_logger=None, llm_instance=None
     logger = agent_trace_logger or logging.getLogger("mcp_analysis")
     crew = SecurityAnalysisCrew(agent_trace_logger=logger, llm_instance=llm_instance)
     result = crew.run(user_input)
-    # Si es un modelo Pydantic, convertir a dict
-    if hasattr(result, 'dict'):
-        result = result.dict()
+    # Normalizar a dict JSON si es posible
+    try:
+        if hasattr(result, 'model_dump'):
+            return result.model_dump()
+    except Exception:
+        pass
+    try:
+        if hasattr(result, 'dict'):
+            return result.dict()
+    except Exception:
+        pass
+    # Si es string JSON o wrapper con raw
+    import json as _json
+    if isinstance(result, str):
+        try:
+            obj = _json.loads(result)
+            if isinstance(obj, dict):
+                raw = obj.get('raw')
+                if isinstance(raw, str):
+                    try:
+                        data = _json.loads(raw)
+                        if isinstance(data, dict):
+                            return data
+                    except Exception:
+                        pass
+                return obj
+        except Exception:
+            pass
+    # Último intento: si reporting_task.output fue serializado antes en SecurityAnalysisCrew.run como JSON string
+    try:
+        if isinstance(result, bytes):
+            obj = _json.loads(result.decode('utf-8', errors='ignore'))
+            if isinstance(obj, dict):
+                return obj
+    except Exception:
+        pass
     return result

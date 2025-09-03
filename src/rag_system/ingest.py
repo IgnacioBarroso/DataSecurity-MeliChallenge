@@ -4,9 +4,13 @@ from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_community.vectorstores.utils import filter_complex_metadata
+try:
+    from langchain_chroma import Settings as ChromaSettings
+except Exception:
+    ChromaSettings = None
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.storage import InMemoryStore
+from pydantic import SecretStr
 from src.rag_system.redis_docstore import RedisDocStore
 from src.config import settings
 
@@ -49,7 +53,6 @@ def ingest_dbir_report():
     # 1c. Validar dimensiones del modelo de embedding vs Chroma
     # (Esto se valida automáticamente en Chroma/OpenAIEmbeddings, pero se puede loggear)
     embedding_model = "text-embedding-3-small"
-    from pydantic import SecretStr
     embedding = OpenAIEmbeddings(model=embedding_model, api_key=SecretStr(settings.OPENAI_API_KEY))
     expected_dim = 1536
     logging.info(f"Usando modelo de embedding '{embedding_model}' con dimensión esperada: {expected_dim}")
@@ -61,10 +64,6 @@ def ingest_dbir_report():
     # 3. Configurar el vectorstore y el docstore (remoto si hay host/port)
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
     chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
-    try:
-        from langchain_chroma import Settings as ChromaSettings
-    except ImportError:
-        ChromaSettings = None
     if chroma_host and chroma_port and ChromaSettings:
         client_settings = ChromaSettings(
             chroma_api_impl="rest",

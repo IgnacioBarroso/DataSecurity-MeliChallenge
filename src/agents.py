@@ -2,6 +2,7 @@
 from crewai import Agent
 from src.tools.dbir_rag_tool import dbir_rag_tool
 from src.tools.mitre_tool import mitre_attack_query_tool, get_mitre_technique_details
+from src.tools.mcp_external import get_external_tools
 from src.llm_provider import get_llm
 
 llm = get_llm()
@@ -74,8 +75,6 @@ Action: MITRE ATT&CK Technique Query Tool
 Action Input: {"query": "Credential Stuffing"}
 Observation: [tool output here]
 """
-    # Importar herramientas del MCP externo de forma lazy
-    from src.tools.mcp_external import get_external_tools
     return Agent(
         role="Risk Classifier Agent",
         goal="Enrich the analyzer's findings using the MITRE ATT&CK tool and the external MCP to map risks to TTPs.",

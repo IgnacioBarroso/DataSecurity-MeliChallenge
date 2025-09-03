@@ -4,6 +4,10 @@ import json
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import redis
+try:
+    from langchain_core.documents import Document  # type: ignore
+except Exception:
+    Document = None  # type: ignore
 
 
 class RedisDocStore:
@@ -58,12 +62,6 @@ class RedisDocStore:
     @staticmethod
     def _to_payload(value: Any) -> str:
         # Value puede ser string, Document o dict similar
-        try:
-            # LangChain Document
-            from langchain_core.documents import Document  # type: ignore
-        except Exception:
-            Document = None  # type: ignore
-
         if Document and isinstance(value, Document):
             data = {"page_content": value.page_content, "metadata": value.metadata or {}}
             return json.dumps(data, ensure_ascii=False)
@@ -71,4 +69,3 @@ class RedisDocStore:
             return json.dumps(value, ensure_ascii=False)
         # Fallback: guardar como texto
         return json.dumps({"page_content": str(value), "metadata": {}}, ensure_ascii=False)
-

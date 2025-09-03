@@ -4,11 +4,12 @@ Evaluación de calidad RAG con RAGAs para el Meli Challenge.
 - Usa el contexto devuelto por el pipeline como retrieved_contexts
 """
 
-from typing import List
-from ragas.metrics import context_precision, faithfulness
-from ragas.evaluation import evaluate
-from ragas import Dataset
 import asyncio
+from typing import List
+from ragas import Dataset
+from ragas.evaluation import evaluate
+from ragas.metrics import context_precision, faithfulness
+from src.tools.retriever import ask_rag
 
 
 # Dataset de ejemplo (modificable)
@@ -27,8 +28,6 @@ EVAL_DATA = [
 
 
 async def run_rag(question: str) -> dict:
-    from src.tools.retriever import ask_rag
-
     return await ask_rag(question)
 
 

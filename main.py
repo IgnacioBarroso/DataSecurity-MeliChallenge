@@ -1,11 +1,16 @@
 import argparse
-import api.auto_dotenv  # Carga variables de entorno desde .env para CLI
-import sys
-from src.mcp_crews import SecurityAnalysisCrew
+import asyncio
+import json
 import logging
+import sys
+import api.auto_dotenv  # Carga variables de entorno desde .env para CLI
+from src.mcp_crews import SecurityAnalysisCrew
 from src.logging_config import setup_agent_trace_logging
 from src.tools.retriever import ask_rag
-import json
+try:
+    from pydantic import BaseModel  # type: ignore
+except Exception:
+    BaseModel = object
 
 
 def main():
@@ -24,7 +29,6 @@ def main():
 
     if args.cmd == "rag":
         print("Consultando RAG...")
-        import asyncio
         result = asyncio.run(ask_rag(args.question))
         print("\n--- RESPUESTA RAG ---\n")
         print(result.get("answer", ""))
@@ -51,7 +55,6 @@ def main():
             # Normalizar a JSON estricto
             out_str = None
             try:
-                from pydantic import BaseModel  # type: ignore
                 if isinstance(report, BaseModel):
                     out_str = report.model_dump_json()
             except Exception:
