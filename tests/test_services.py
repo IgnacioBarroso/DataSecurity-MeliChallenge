@@ -6,7 +6,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 from api.services.crew_service import run_analysis_crew
 from src.models import SecurityReportInput
-from src.logging_config import setup_agent_trace_logging  # Importar la función real
 
 
 @patch("api.services.crew_service.run_mcp_analysis")

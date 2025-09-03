@@ -1,20 +1,21 @@
-import logging
-from langchain_chroma import Chroma
 try:
     from langchain_chroma import Settings as ChromaSettings  # type: ignore
 except Exception:
     ChromaSettings = None  # type: ignore
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
 try:
     from langchain_cohere import CohereRerank
 except Exception:
     CohereRerank = None
+
+import math
+import logging
+from langchain_chroma import Chroma    
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
-import math
 from src.config import settings
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.text_splitter import RecursiveCharacterTextSplitter

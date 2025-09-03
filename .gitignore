@@ -15,6 +15,14 @@ __pycache__/
 # Docker
 docker-compose.override.yml
 
+# Poetry: mantener el lockfile en repos para apps
+# (permite builds reproducibles en despliegue). No ignorar poetry.lock.
+
+# Cache
+__pypackages__/
+.pytest_cache/
+__pycache__/
+
 # Logs
 logs/*
 !logs/.gitkeep

@@ -3,9 +3,6 @@ Tests para el proveedor de LLM.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
-from langchain_openai import ChatOpenAI
-from langchain_ollama.llms import OllamaLLM
 from src.llm_provider import get_llm
 from src.config import Settings
 

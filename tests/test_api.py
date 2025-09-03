@@ -3,10 +3,8 @@ Tests para el endpoint de la API /api/analyze.
 """
 
 import pytest
-from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api.main import app
-import json
 
 # Usar el cliente de prueba de FastAPI
 client = TestClient(app)

@@ -1,3 +1,10 @@
+#######################################################################
+# Imagen simple para el servidor MCP de MITRE ATT&CK
+# - Clona repo público y lo instala como paquete
+# - Expone puerto 8080
+# - Ejecuta el servidor por módulo
+#######################################################################
+
 FROM python:3.11-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -8,18 +15,15 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Clona el servidor MCP oficial de MITRE ATT&CK
+# Clonar el servidor MCP
 RUN git clone --depth=1 https://github.com/stoyky/mitre-attack-mcp.git /app/mitre-attack-mcp
 
 WORKDIR /app/mitre-attack-mcp
 
-# Instalar dependencias del proyecto
+# Instalar dependencias mínimas y el paquete
 RUN pip install --no-cache-dir -U pip wheel setuptools \
     && pip install --no-cache-dir .
 
-# Exponer el puerto por defecto del servidor (ajustable vía env)
 EXPOSE 8080
 
-# Ejecutar el servidor MCP
 CMD ["python", "-m", "mitre_attack_mcp.server"]
-

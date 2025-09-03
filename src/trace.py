@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 from typing import Optional
 
@@ -13,4 +12,3 @@ def set_trace_logger(logger: Optional[logging.Logger]) -> None:
 
 def get_trace_logger() -> Optional[logging.Logger]:
     return _trace_logger
-

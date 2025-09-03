@@ -5,19 +5,19 @@ Este módulo define el patrón de orquestación secuencial requerido por el chal
 _donde el output de una sub-crew se convierte en el input de la siguiente.
 """
 
-import json
-import logging
-from crewai import Crew, Process, Task, Agent
-from src.agents import reporting_agent, risk_classifier_agent, threat_analyzer_agent
-from src.llm_provider import get_llm
-from src.models import EnrichedFindings, FinalReport, ThreatFindings
-from src.tools.dbir_rag_tool import dbir_rag_tool
-from src.tools.mitre_tool import get_mitre_technique_details, mitre_attack_query_tool
-from src.trace import set_trace_logger
 try:
     from pydantic import BaseModel  # type: ignore
 except Exception:
     BaseModel = object  # fallback
+
+import json
+import logging
+from crewai import Crew, Process, Task
+from src.agents import reporting_agent, risk_classifier_agent, threat_analyzer_agent
+from src.llm_provider import get_llm
+from src.models import EnrichedFindings, FinalReport, ThreatFindings
+from src.trace import set_trace_logger
+
 
 
 llm = get_llm()

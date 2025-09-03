@@ -1,5 +1,3 @@
-
-# --- Integración con el pipeline RAG avanzado ---
 import logging
 import math
 from langchain_openai import OpenAIEmbeddings

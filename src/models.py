@@ -1,4 +1,3 @@
-
 # Modelos Pydantic para el flujo MCP de 3 agentes
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -44,7 +43,6 @@ class EnrichedFinding(ThreatFinding):
 
 class EnrichedFindings(BaseModel):
     findings: List[EnrichedFinding]
-
 
 
 # 3. Output del Reporte Final (FinalReport)

@@ -1,5 +1,13 @@
 version: '3.8'
 
+# Orquestación de servicios para el challenge:
+# - mitre-mcp: servidor MCP externo (MITRE ATT&CK)
+# - datasec-agent: API FastAPI con RAG y agentes
+# - dbir-ingest: job one-shot para poblar vector_db desde el PDF
+# - chromadb (opcional): Chroma REST; por defecto usamos persist_directory local
+# - ollama (opcional): LLM local
+# - redis: docstore simple para ParentDocumentRetriever
+
 services:
   mitre-mcp:
     build:
@@ -9,6 +17,7 @@ services:
       - "8080:8080"
     restart: unless-stopped
     healthcheck:
+      # Chequeo básico HTTP del servidor MCP
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080', timeout=2)\""]
       interval: 15s
       timeout: 5s
@@ -20,12 +29,14 @@ services:
     env_file:
       - .env
     environment:
-      # Asegurar que el agente apele al MCP externo por HTTP
+      # Configurar comunicación con el MCP externo
       - MCP_EXTERNAL_HOST=mitre-mcp
       - MCP_EXTERNAL_PORT=8080
       - MCP_EXTERNAL_PROTOCOL=http
     volumes:
+      # PDF y data de ejemplo se montan como solo-lectura
       - ./data:/app/data:ro
+      # Logs y base vectorial se persisten en el host
       - ./logs:/app/logs
       - ./vector_db:/app/vector_db
     ports:
@@ -34,14 +45,16 @@ services:
     depends_on:
       - mitre-mcp
       - redis
+      # chromadb es opcional; si deseas usar REST comenta CHROMA_DB_HOST en .env
       - chromadb
     healthcheck:
+      # Healthcheck de la API principal
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
       interval: 15s
       timeout: 5s
       retries: 5
 
-  # Job de ingesta (ejecutar 1 vez o cuando cambie el PDF)
+  # Job de ingesta (ejecutar manualmente cuando cambie el PDF)
   dbir-ingest:
     build: .
     image: meli-datasec-challenge-app
@@ -56,7 +69,7 @@ services:
       - redis
       - chromadb
 
-  # Servicio opcional de ChromaDB remoto (no requerido por defecto)
+  # Servicio opcional de ChromaDB remoto (útil para escalar o separar estado)
   chromadb:
     image: chromadb/chroma:latest
     ports:
@@ -76,13 +89,13 @@ services:
       - ollama:/root/.ollama
     restart: unless-stopped
 
-volumes:
-  ollama:
-  # vector_db lo provee el bind-mount
-
   # Docstore Redis (persistente y simple)
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     restart: unless-stopped
+
+volumes:
+  ollama:
+  # vector_db lo provee el bind-mount

@@ -1,8 +1,4 @@
-from unittest.mock import MagicMock, patch
-import pytest
-
-from src.tools.mitre_tool import _mitre_attack_query_tool, get_attack_client
-from src.tools.dbir_rag_tool import _dbir_rag_tool
+from src.tools.mitre_tool import get_attack_client
 
 
 def test_get_attack_client_singleton():

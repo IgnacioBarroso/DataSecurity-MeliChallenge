@@ -6,7 +6,6 @@ utilizando la configuración definida en `src/config.py`.
 """
 
 import logging
-import os  # Import os
 from langchain_openai import ChatOpenAI
 from langchain_ollama.llms import OllamaLLM
 from src.config import settings
