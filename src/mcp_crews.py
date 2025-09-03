@@ -14,6 +14,7 @@ import logging
 from src.agents import threat_analyzer_agent, risk_classifier_agent, reporting_agent
 import json
 from src.trace import set_trace_logger
+import json
 
 
 llm = get_llm()
@@ -67,13 +68,25 @@ class SecurityAnalysisCrew:
             logger = self.agent_trace_logger or logging.getLogger("agent_trace")
             session_id = logger.name.replace("agent_trace_", "") if logger.name.startswith("agent_trace_") else None
             # Log de inputs/outputs de cada tarea (best-effort) usando JsonFormatter extras
+            def _safe_preview(obj):
+                try:
+                    from pydantic import BaseModel  # type: ignore
+                    if isinstance(obj, BaseModel):
+                        return obj.model_dump()  # serializable
+                except Exception:
+                    pass
+                try:
+                    return str(obj)[:2000]
+                except Exception:
+                    return None
+
             logger.info(
                 "task_analysis_completed",
                 extra={
                     "session_id": session_id,
                     "task_name": "analysis",
                     "input_data": user_input,
-                    "output_data": getattr(analysis_task, "output", None),
+                    "output_data": _safe_preview(getattr(analysis_task, "output", None)),
                 },
             )
             logger.info(
@@ -81,8 +94,8 @@ class SecurityAnalysisCrew:
                 extra={
                     "session_id": session_id,
                     "task_name": "classification",
-                    "input_data": getattr(analysis_task, "output", None),
-                    "output_data": getattr(classification_task, "output", None),
+                    "input_data": _safe_preview(getattr(analysis_task, "output", None)),
+                    "output_data": _safe_preview(getattr(classification_task, "output", None)),
                 },
             )
             logger.info(
@@ -90,8 +103,8 @@ class SecurityAnalysisCrew:
                 extra={
                     "session_id": session_id,
                     "task_name": "reporting",
-                    "input_data": getattr(classification_task, "output", None),
-                    "output_data": getattr(reporting_task, "output", None),
+                    "input_data": _safe_preview(getattr(classification_task, "output", None)),
+                    "output_data": _safe_preview(getattr(reporting_task, "output", None)),
                 },
             )
         except Exception:
@@ -100,6 +113,46 @@ class SecurityAnalysisCrew:
         finally:
             # Limpiar trace logger global
             set_trace_logger(None)
+
+        # Intentar retornar JSON estricto del resultado final
+        try:
+            from pydantic import BaseModel  # type: ignore
+            if hasattr(reporting_task, "output") and isinstance(reporting_task.output, BaseModel):
+                return reporting_task.output.model_dump_json()
+        except Exception:
+            pass
+        # Si CrewAI retorna un TaskOutput con campo raw (JSON), extraerlo
+        try:
+            o = getattr(reporting_task, "output", None)
+            raw = None
+            if o is not None:
+                raw = getattr(o, "raw", None)
+                if raw is None and isinstance(o, dict):
+                    raw = o.get("raw")
+            if isinstance(raw, str):
+                data = json.loads(raw)
+                # Validar estructura mínima requerida
+                required = ["report_id", "application_name", "summary", "prioritized_detectors"]
+                if all(k in data for k in required):
+                    return json.dumps(data, ensure_ascii=False)
+        except Exception:
+            pass
+        try:
+            if hasattr(result, "model_dump_json"):
+                return result.model_dump_json()
+        except Exception:
+            pass
+        # Si es un string JSON con campo 'raw', extraerlo
+        try:
+            if isinstance(result, str):
+                obj = json.loads(result)
+                if isinstance(obj, dict) and "raw" in obj and isinstance(obj["raw"], str):
+                    data = json.loads(obj["raw"])
+                    required = ["report_id", "application_name", "summary", "prioritized_detectors"]
+                    if all(k in data for k in required):
+                        return json.dumps(data, ensure_ascii=False)
+        except Exception:
+            pass
         return result
 
 

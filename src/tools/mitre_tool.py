@@ -67,8 +67,12 @@ def _mitre_attack_query_tool(query: Any) -> str:
             except Exception as e:
                 logger.warning(f"Error searching with keyword '{kw}': {e}")
 
-        # Remove duplicates by ID (dictionary access)
-        unique = {tech["id"]: tech for tech in all_results if isinstance(tech, dict) and "id" in tech}.values()
+        # Remove duplicates by ID preserving first occurrence
+        unique_map = {}
+        for tech in all_results:
+            if isinstance(tech, dict) and "id" in tech and tech["id"] not in unique_map:
+                unique_map[tech["id"]] = tech
+        unique = unique_map.values()
         if not unique:
             logger.error(
                 f"No MITRE ATT&CK techniques found for query: '{query}'."

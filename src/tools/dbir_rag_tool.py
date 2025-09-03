@@ -1,5 +1,5 @@
-# Exponer para tests
-from src.tools.retriever import query_dbir_report
+# Exponer para tests: import del módulo para que el patch funcione
+from src.tools import retriever
 from crewai.tools import tool
 from typing import Any
 from src.logging_config import logging
@@ -57,7 +57,7 @@ def _dbir_rag_tool(query: Any) -> str:
         )
     # Recuperar documentos iniciales
     try:
-        result = query_dbir_report(query)
+        result = retriever.query_dbir_report(query)
         if tlogger:
             tlogger.info(
                 "tool_result",

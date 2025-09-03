@@ -1,5 +1,5 @@
 import logging
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
@@ -17,27 +17,35 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.rag_system.redis_docstore import RedisDocStore
 
 def _build_vectorstore(chroma_path, collection_name, embedding_fn):
-    from langchain_chroma import Settings as ChromaSettings
+    try:
+        from langchain_chroma import Settings as ChromaSettings  # type: ignore
+    except Exception:
+        ChromaSettings = None  # type: ignore
+
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
     chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
-    if chroma_host and chroma_port:
-        client_settings = ChromaSettings(
-            chroma_api_impl="rest",
-            chroma_server_host=chroma_host,
-            chroma_server_http_port=chroma_port,
-            anonymized_telemetry=False,
-        )
-        return Chroma(
-            collection_name=collection_name,
-            embedding_function=embedding_fn,
-            client_settings=client_settings,
-        )
-    else:
-        return Chroma(
-            persist_directory=chroma_path,
-            collection_name=collection_name,
-            embedding_function=embedding_fn,
-        )
+
+    if chroma_host and chroma_port and ChromaSettings:
+        try:
+            client_settings = ChromaSettings(
+                chroma_api_impl="rest",
+                chroma_server_host=chroma_host,
+                chroma_server_http_port=chroma_port,
+                anonymized_telemetry=False,
+            )
+            return Chroma(
+                collection_name=collection_name,
+                embedding_function=embedding_fn,
+                client_settings=client_settings,
+            )
+        except Exception:
+            pass  # Fallback a uso local si falla la config REST
+
+    return Chroma(
+        persist_directory=chroma_path,
+        collection_name=collection_name,
+        embedding_function=embedding_fn,
+    )
 
 
 def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohere_api_key):
@@ -151,7 +159,10 @@ def get_rag_chain():
     def build_context(question: str):
         # Obtener documentos desde el retriever avanzado
         try:
-            docs = advanced_retriever.get_relevant_documents(question)
+            if hasattr(advanced_retriever, "invoke"):
+                docs = advanced_retriever.invoke(question)
+            else:
+                docs = advanced_retriever.get_relevant_documents(question)
         except Exception:
             docs = []
         # Si no hay Cohere (no compresor), aplicar MMR semántico

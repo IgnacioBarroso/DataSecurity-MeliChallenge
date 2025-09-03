@@ -1,9 +1,11 @@
 import argparse
+import api.auto_dotenv  # Carga variables de entorno desde .env para CLI
 import sys
 from src.mcp_crews import SecurityAnalysisCrew
 import logging
 from src.logging_config import setup_agent_trace_logging
 from src.tools.retriever import ask_rag
+import json
 
 
 def main():
@@ -46,8 +48,40 @@ def main():
         report = crew.run(user_input)
 
         if hasattr(args, "output") and args.output:
+            # Normalizar a JSON estricto
+            out_str = None
+            try:
+                from pydantic import BaseModel  # type: ignore
+                if isinstance(report, BaseModel):
+                    out_str = report.model_dump_json()
+            except Exception:
+                pass
+            if out_str is None and isinstance(report, dict):
+                out_str = json.dumps(report, ensure_ascii=False)
+            if out_str is None and isinstance(report, str):
+                try:
+                    obj = json.loads(report)
+                    if isinstance(obj, dict) and "raw" in obj and isinstance(obj["raw"], str):
+                        data = json.loads(obj["raw"])
+                        out_str = json.dumps(data, ensure_ascii=False)
+                    else:
+                        out_str = report
+                except Exception:
+                    out_str = report
+            if out_str is None:
+                s = str(report)
+                try:
+                    obj = json.loads(s)
+                    if isinstance(obj, dict) and "raw" in obj and isinstance(obj["raw"], str):
+                        data = json.loads(obj["raw"])
+                        out_str = json.dumps(data, ensure_ascii=False)
+                    else:
+                        out_str = s
+                except Exception:
+                    out_str = s
+
             with open(args.output, "w", encoding="utf-8") as f:
-                f.write(report if isinstance(report, str) else str(report))
+                f.write(out_str)
             print(f"Reporte guardado en {args.output}")
         else:
             print("\n--- REPORTE DE SEGURIDAD ---\n")
