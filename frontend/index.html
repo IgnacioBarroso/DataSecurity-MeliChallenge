@@ -4,104 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Security Meli Challenge</title>
+    <meta name="repo-url" content="https://github.com/your-org/your-repo" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #101010;
-            color: #f0f0f0;
-        }
-        .meli-yellow {
-            color: #ffe600;
-        }
-        .bg-meli-yellow {
-            background-color: #ffe600;
-        }
-        .border-meli-yellow {
-            border-color: #ffe600;
-        }
-        .panel {
-            background-color: #1c1c1c;
-            border: 1px solid #333;
-            border-radius: 12px;
-            transition: all 0.3s ease-in-out;
-            display: flex;
-            flex-direction: column;
-        }
-        .panel:hover {
-            border-color: #ffe600;
-            box-shadow: 0 0 15px rgba(255, 230, 0, 0.1);
-        }
-        .main-textarea, .json-output {
-            background-color: #2a2a2a;
-            border: 1px solid #444;
-            border-radius: 8px;
-            padding: 1rem;
-            flex-grow: 1;
-            font-family: monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            resize: none;
-            color: #e0e0e0;
-            transition: border-color 0.3s;
-        }
-        .main-textarea:focus, .json-output:focus {
-            outline: none;
-            border-color: #ffe600;
-        }
-        .btn {
-            background-color: #ffe600;
-            color: #101010;
-            font-weight: 700;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            text-align: center;
-        }
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(255, 230, 0, 0.2);
-        }
-        .btn:disabled {
-            background-color: #555;
-            color: #888;
-            cursor: not-allowed;
-        }
-        .drop-zone-active {
-            border-style: dashed;
-            border-color: #ffe600 !important;
-            background-color: rgba(255, 230, 0, 0.05);
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #ffe600;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #2a2a2a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #555;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #ffe600;
-        }
-    </style>
+    <link rel="stylesheet" href="/ui/assets/css/styles.css">
 </head>
 <body class="min-h-screen flex flex-col p-4 md:p-8">
 
@@ -121,212 +26,27 @@
                 <button id="analyzeButton" class="btn flex-1">Analizar</button>
             </div>
         </div>
-
+        
         <!-- Right Panel: Output -->
         <div class="panel p-6">
-            <h2 class="text-xl font-bold mb-4 text-center">2. Reporte de Seguridad</h2>
-            <div id="outputContainer" class="relative flex-grow">
-                 <pre id="jsonOutput" class="json-output w-full h-full overflow-auto"><code class="language-json">El reporte de seguridad aparecerá aquí...</code></pre>
-                 <div id="loader" class="absolute inset-0 bg-gray-800 bg-opacity-70 flex items-center justify-center rounded-lg hidden">
-                     <div class="loader"></div>
-                 </div>
-            </div>
-            <div class="mt-4">
-                <button id="downloadButton" class="btn w-full" disabled>Descargar JSON</button>
-            </div>
+            <h2 class="text-xl font-bold mb-4 text-center">2. Reporte Generado (JSON)</h2>
+            <pre id="jsonOutput" class="json-output w-full h-96 overflow-auto"></pre>
+            <button id="downloadButton" class="btn mt-4" disabled>Descargar JSON</button>
         </div>
     </main>
 
-    <a href="https://github.com/IgnacioBarroso/MeliChallenge" target="_blank" rel="noopener noreferrer" class="fixed bottom-6 right-6 text-gray-400 hover:text-meli-yellow transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div class="loader"></div>
+    </div>
+
+    <!-- GitHub floating icon (bottom-left) -->
+    <a id="githubLink" href="#" target="_blank" aria-label="Repositorio" class="fixed bottom-4 left-4 bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg border border-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.73.5.98 5.24.98 11.52c0 4.86 3.15 8.98 7.51 10.43.55.1.75-.24.75-.53 0-.26-.01-1.12-.02-2.03-3.05.66-3.7-1.29-3.7-1.29-.5-1.27-1.22-1.6-1.22-1.6-.99-.68.08-.66.08-.66 1.1.08 1.68 1.13 1.68 1.13.98 1.67 2.57 1.19 3.2.91.1-.71.38-1.19.68-1.46-2.44-.28-5-1.22-5-5.43 0-1.2.43-2.19 1.13-2.96-.11-.28-.49-1.41.11-2.94 0 0 .92-.29 3.01 1.13.88-.24 1.83-.36 2.78-.36.95 0 1.9.12 2.78.36 2.09-1.43 3.01-1.13 3.01-1.13.6 1.53.22 2.66.11 2.94.7.77 1.13 1.76 1.13 2.96 0 4.22-2.57 5.14-5.02 5.41.39.33.73.98.73 1.99 0 1.44-.01 2.6-.01 2.95 0 .29.2.64.76.53 4.35-1.45 7.5-5.57 7.5-10.43C23.02 5.24 18.27.5 12 .5z"/>
         </svg>
     </a>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const inputText = document.getElementById('inputText');
-            const uploadButton = document.getElementById('uploadButton');
-            const fileInput = document.getElementById('fileInput');
-            const analyzeButton = document.getElementById('analyzeButton');
-            const jsonOutput = document.getElementById('jsonOutput').querySelector('code');
-            const downloadButton = document.getElementById('downloadButton');
-            const inputPanel = document.getElementById('input-panel');
-            const loader = document.getElementById('loader');
-
-            let reportData = null;
-            
-            // Pre-fill textarea with example content
-            const initialText = `Nombre: Internal Payments Hub
-
-Uso:
-
-Permite a operadores, supervisores y auditores internos:
-
-Consultar pagos históricos de clientes y proveedores.
-
-Aprobar, modificar o bloquear pagos de alto riesgo.
-
-Ajustar límites diarios y mensuales de cuentas.
-
-Desbloquear cuentas bajo investigación de fraude.
-
-El sistema expone varias APIs internas (RESTful), utilizadas por otras apps de monitoreo y gestión.
-
-APIs expuestas:
-
-/api/payments/submit: Registrar un nuevo pago desde Admin.
-
-/api/payments/refund: Devolver un pago ante reclamo.
-
-/api/account/limit-adjust: Cambiar límites operativos.
-
-/api/account/audit-log: Descargar logs de actividad.
-
-Los logs operativos se almacenan y pueden ser consultados vía una consola interna.
-
-Accesos restringidos por roles (operator, supervisor, auditor).
-
-Las APIs incluyen endpoints para consultar y modificar datos críticos.
-
-Tecnologías:
-
-Backend: Python+Django REST Framework.
-
-Base de datos: PostgreSQL cifrada.
-
-Frontend: React.
-
-Autenticación: SSO y Google Authenticator.
-
-Controles actuales:
-
-Logs de todas las acciones sensibles.
-
-Control de acceso basado en roles (pero los roles son algo amplios).
-
-Sin scoring automático de anomalías.`;
-            inputText.value = initialText;
-
-            // --- File Upload Logic ---
-            uploadButton.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    readFile(file);
-                }
-            });
-
-            // --- Drag and Drop Logic ---
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                inputPanel.addEventListener(eventName, preventDefaults, false);
-            });
-
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-
-            ['dragenter', 'dragover'].forEach(eventName => {
-                inputPanel.addEventListener(eventName, () => {
-                    inputPanel.classList.add('drop-zone-active');
-                }, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                inputPanel.addEventListener(eventName, () => {
-                    inputPanel.classList.remove('drop-zone-active');
-                }, false);
-            });
-
-            inputPanel.addEventListener('drop', (event) => {
-                const dt = event.dataTransfer;
-                const file = dt.files[0];
-                if (file && file.type === "text/plain") {
-                    readFile(file);
-                } else {
-                    alert('Por favor, suelta un archivo .txt');
-                }
-            }, false);
-            
-            function readFile(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    inputText.value = e.target.result;
-                };
-                reader.readAsText(file);
-            }
-
-            // --- API Call Logic ---
-            analyzeButton.addEventListener('click', async () => {
-                const userInput = inputText.value.trim();
-                if (!userInput) {
-                    alert('El campo de texto no puede estar vacío.');
-                    return;
-                }
-                
-                setLoading(true);
-                jsonOutput.textContent = 'Procesando...';
-                reportData = null;
-
-                try {
-                    // Assuming the API is running on localhost:8000
-                    const response = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ user_input: userInput }),
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    
-                    // The report_json is a string that needs to be parsed
-                    const parsedReport = JSON.parse(result.report_json);
-                    reportData = parsedReport;
-
-                    jsonOutput.textContent = JSON.stringify(parsedReport, null, 2);
-                    downloadButton.disabled = false;
-
-                } catch (error) {
-                    console.error('Error during analysis:', error);
-                    jsonOutput.textContent = `Error al procesar la solicitud:\n\n${error.message}`;
-                    downloadButton.disabled = true;
-                } finally {
-                    setLoading(false);
-                }
-            });
-
-            function setLoading(isLoading) {
-                if (isLoading) {
-                    loader.classList.remove('hidden');
-                    analyzeButton.disabled = true;
-                    analyzeButton.textContent = 'Analizando...';
-                } else {
-                    loader.classList.add('hidden');
-                    analyzeButton.disabled = false;
-                    analyzeButton.textContent = 'Analizar';
-                }
-            }
-            
-            // --- Download Logic ---
-            downloadButton.addEventListener('click', () => {
-                if (!reportData) return;
-
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
-                const downloadAnchorNode = document.createElement('a');
-                downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", "security_report.json");
-                document.body.appendChild(downloadAnchorNode);
-                downloadAnchorNode.click();
-                downloadAnchorNode.remove();
-            });
-        });
-    </script>
+    <script src="/ui/assets/js/app.js"></script>
 </body>
 </html>
