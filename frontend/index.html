@@ -3,215 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataSec AI Agent v3</title>
+    <title>Data Security Meli Challenge</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #101010;
+            color: #f0f0f0;
         }
-        .card {
-            border: 1px solid #374151; /* gray-700 */
+        .meli-yellow {
+            color: #ffe600;
+        }
+        .bg-meli-yellow {
+            background-color: #ffe600;
+        }
+        .border-meli-yellow {
+            border-color: #ffe600;
+        }
+        .panel {
+            background-color: #1c1c1c;
+            border: 1px solid #333;
+            border-radius: 12px;
             transition: all 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
         }
-        .card:hover {
-            border-color: #facc15; /* yellow-400 */
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        .panel:hover {
+            border-color: #ffe600;
+            box-shadow: 0 0 15px rgba(255, 230, 0, 0.1);
         }
-        /* Scrollbar styles */
+        .main-textarea, .json-output {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 1rem;
+            flex-grow: 1;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            color: #e0e0e0;
+            transition: border-color 0.3s;
+        }
+        .main-textarea:focus, .json-output:focus {
+            outline: none;
+            border-color: #ffe600;
+        }
+        .btn {
+            background-color: #ffe600;
+            color: #101010;
+            font-weight: 700;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-align: center;
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(255, 230, 0, 0.2);
+        }
+        .btn:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+        .drop-zone-active {
+            border-style: dashed;
+            border-color: #ffe600 !important;
+            background-color: rgba(255, 230, 0, 0.05);
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ffe600;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #1f2937; /* gray-800 */
+            background: #2a2a2a;
         }
         ::-webkit-scrollbar-thumb {
-            background-color: #4b5563; /* gray-600 */
-            border-radius: 20px;
-            border: 2px solid #1f2937; /* gray-800 */
+            background: #555;
+            border-radius: 4px;
         }
-        .mitre-link {
-            transition: color 0.2s;
-        }
-        .mitre-link:hover {
-            color: #facc15; /* yellow-400 */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ffe600;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 antialiased">
-    
-    <div class="container mx-auto p-4 md:p-8">
+<body class="min-h-screen flex flex-col p-4 md:p-8">
 
-        <!-- Header -->
-        <header class="text-center mb-10">
-            <h1 class="text-4xl md:text-5xl font-bold text-white">DataSec AI Agent <span class="text-yellow-400">v3</span></h1>
-            <p class="text-lg text-gray-400 mt-2">Análisis de Seguridad Autónomo a través de API</p>
-        </header>
+    <header class="text-center mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold">Data Security <span class="meli-yellow">Meli Challenge</span></h1>
+        <p class="text-gray-400 mt-1">by Ignacio Barroso</p>
+    </header>
 
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-            <!-- Left Column: Input & Controls -->
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col">
-                <div>
-                    <h2 class="text-2xl font-semibold text-white mb-4">1. Contexto de la Aplicación</h2>
-                    <p class="text-gray-400 mb-4">
-                        Describe el ecosistema de tu aplicación. Puedes usar lenguaje natural o un formato semi-estructurado.
-                    </p>
-                    
-                    <div class="mb-4">
-                        <span class="text-sm font-medium text-gray-400 mr-2">Cargar ejemplo:</span>
-                        <button class="example-btn text-sm bg-gray-700 hover:bg-gray-600 text-yellow-400 font-bold py-1 px-3 rounded" data-example="1">Gestión de Pagos</button>
-                        <button class="example-btn text-sm bg-gray-700 hover:bg-gray-600 text-yellow-400 font-bold py-1 px-3 rounded" data-example="2">Consola de Empleados</button>
-                    </div>
-
-                    <textarea id="userInput" class="w-full h-80 bg-gray-900 border-2 border-gray-700 rounded-md p-3 text-gray-300 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition duration-200 resize-y text-sm" placeholder="Pega aquí la descripción de tu aplicación..."></textarea>
-                </div>
-                
-                <button id="analyzeBtn" class="mt-6 w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                    <svg id="analyzeIcon" class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                    <span id="analyzeBtnText">Ejecutar Análisis</span>
-                    <svg id="loadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Right Column: Output -->
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold text-white mb-4">2. Reporte de Seguridad Generado</h2>
-                <div id="outputContainer" class="h-[500px] overflow-y-auto pr-2">
-                    <div id="placeholder" class="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                        <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <p class="text-lg font-medium">El reporte aparecerá aquí.</p>
-                        <p>Ingresa el contexto de tu aplicación y ejecuta el análisis.</p>
-                    </div>
-                    <div id="reportContent" class="hidden">
-                        <!-- Report content will be dynamically injected here -->
-                    </div>
-                </div>
+    <main class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Left Panel: Input -->
+        <div id="input-panel" class="panel p-6">
+            <h2 class="text-xl font-bold mb-4 text-center">1. Proporcionar Contexto</h2>
+            <textarea id="inputText" class="main-textarea w-full" placeholder="Escribe o pega el texto aquí, o arrastra un archivo .txt..."></textarea>
+            <div class="flex items-center justify-between mt-4 gap-4">
+                <button id="uploadButton" class="btn flex-1">Cargar Archivo</button>
+                <input type="file" id="fileInput" class="hidden" accept=".txt">
+                <button id="analyzeButton" class="btn flex-1">Analizar</button>
             </div>
         </div>
-    </div>
+
+        <!-- Right Panel: Output -->
+        <div class="panel p-6">
+            <h2 class="text-xl font-bold mb-4 text-center">2. Reporte de Seguridad</h2>
+            <div id="outputContainer" class="relative flex-grow">
+                 <pre id="jsonOutput" class="json-output w-full h-full overflow-auto"><code class="language-json">El reporte de seguridad aparecerá aquí...</code></pre>
+                 <div id="loader" class="absolute inset-0 bg-gray-800 bg-opacity-70 flex items-center justify-center rounded-lg hidden">
+                     <div class="loader"></div>
+                 </div>
+            </div>
+            <div class="mt-4">
+                <button id="downloadButton" class="btn w-full" disabled>Descargar JSON</button>
+            </div>
+        </div>
+    </main>
+
+    <a href="https://github.com/IgnacioBarroso/MeliChallenge" target="_blank" rel="noopener noreferrer" class="fixed bottom-6 right-6 text-gray-400 hover:text-meli-yellow transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+    </a>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- CONFIG & STATE ---
-            const API_ENDPOINT = 'http://localhost:8000/analyze';
+            const inputText = document.getElementById('inputText');
+            const uploadButton = document.getElementById('uploadButton');
+            const fileInput = document.getElementById('fileInput');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const jsonOutput = document.getElementById('jsonOutput').querySelector('code');
+            const downloadButton = document.getElementById('downloadButton');
+            const inputPanel = document.getElementById('input-panel');
+            const loader = document.getElementById('loader');
 
-            // --- UI ELEMENTS ---
-            const elements = {
-                userInput: document.getElementById('userInput'),
-                analyzeBtn: document.getElementById('analyzeBtn'),
-                analyzeBtnText: document.getElementById('analyzeBtnText'),
-                loadingSpinner: document.getElementById('loadingSpinner'),
-                analyzeIcon: document.getElementById('analyzeIcon'),
-                outputContainer: document.getElementById('outputContainer'),
-                placeholder: document.getElementById('placeholder'),
-                reportContent: document.getElementById('reportContent'),
-                exampleButtons: document.querySelectorAll('.example-btn')
-            };
+            let reportData = null;
+            
+            // Pre-fill textarea with example content
+            const initialText = `Nombre: Internal Payments Hub
 
-            // --- EXAMPLE DATA ---
-            const examples = {
-                "1": `Nombre: Internal Payments Hub
 Uso:
-- Permite a operadores, supervisores y auditores internos:
-- Consultar pagos históricos de clientes y proveedores
-- Aprobar, modificar o bloquear pagos de alto riesgo
-- Ajustar límites diarios y mensuales de cuentas
-- Desbloquear cuentas bajo investigación de fraude
-APIs expuestas:
-- /api/payments/submit: Registrar un nuevo pago desde Admin
-- /api/payments/refund: Devolver un pago ante reclamo
-- /api/account/limit-adjust: Cambiar límites operativos
-- /api/account/audit-log: Descargar logs de actividad
-Tecnologías:
-- Backend Python+Django REST Framework
-- Base de datos PostgreSQL cifrada
-- Frontend React
-- Autenticación SSO y Google Authenticator
-Controles actuales:
-- Logs de todas las acciones sensibles.
-- Control de acceso basado en roles (pero roles algo amplios).
-- Sin scoring automático de anomalías.`,
-                "2": `Nombre: Employee Management Console
-Uso:
-- Permite a personal de RRHH, gerentes y administradores:
-- Consultar, actualizar, dar de alta/baja perfiles de empleados.
-- Descargar reportes de datos sensibles (DNI, datos bancarios).
-APIs expuestas:
-- /api/employees/get-details: Consultar información de un empleado
-- /api/employees/update-profile: Modificar datos del perfil
-- /api/access-management/grant: Otorgar o revocar accesos
-- /api/reporting/export-data: Exportar datos sensibles en CSV/XLS
-Tecnologías:
-- Backend Java Spring Boot
-- Base de datos Oracle con cifrado TDE
-- Frontend Angular
-- Autenticación LDAP corporativo + MFA opcional
-Controles actuales:
-- Logging de cambios sensibles.
-- Acceso basado en roles estrictos (reportes masivos no limitados).
-- No hay alertas sobre descargas inusuales.`
-            };
 
-            // --- UI FUNCTIONS ---
-            function setLoadingState(isLoading) {
-                elements.analyzeBtn.disabled = isLoading;
-                elements.analyzeBtnText.classList.toggle('hidden', isLoading);
-                elements.analyzeIcon.classList.toggle('hidden', isLoading);
-                elements.loadingSpinner.classList.toggle('hidden', !isLoading);
+Permite a operadores, supervisores y auditores internos:
+
+Consultar pagos históricos de clientes y proveedores.
+
+Aprobar, modificar o bloquear pagos de alto riesgo.
+
+Ajustar límites diarios y mensuales de cuentas.
+
+Desbloquear cuentas bajo investigación de fraude.
+
+El sistema expone varias APIs internas (RESTful), utilizadas por otras apps de monitoreo y gestión.
+
+APIs expuestas:
+
+/api/payments/submit: Registrar un nuevo pago desde Admin.
+
+/api/payments/refund: Devolver un pago ante reclamo.
+
+/api/account/limit-adjust: Cambiar límites operativos.
+
+/api/account/audit-log: Descargar logs de actividad.
+
+Los logs operativos se almacenan y pueden ser consultados vía una consola interna.
+
+Accesos restringidos por roles (operator, supervisor, auditor).
+
+Las APIs incluyen endpoints para consultar y modificar datos críticos.
+
+Tecnologías:
+
+Backend: Python+Django REST Framework.
+
+Base de datos: PostgreSQL cifrada.
+
+Frontend: React.
+
+Autenticación: SSO y Google Authenticator.
+
+Controles actuales:
+
+Logs de todas las acciones sensibles.
+
+Control de acceso basado en roles (pero los roles son algo amplios).
+
+Sin scoring automático de anomalías.`;
+            inputText.value = initialText;
+
+            // --- File Upload Logic ---
+            uploadButton.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    readFile(file);
+                }
+            });
+
+            // --- Drag and Drop Logic ---
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                inputPanel.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
             }
 
-            function renderReport(data) {
-                elements.placeholder.classList.add('hidden');
+            ['dragenter', 'dragover'].forEach(eventName => {
+                inputPanel.addEventListener(eventName, () => {
+                    inputPanel.classList.add('drop-zone-active');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                inputPanel.addEventListener(eventName, () => {
+                    inputPanel.classList.remove('drop-zone-active');
+                }, false);
+            });
+
+            inputPanel.addEventListener('drop', (event) => {
+                const dt = event.dataTransfer;
+                const file = dt.files[0];
+                if (file && file.type === "text/plain") {
+                    readFile(file);
+                } else {
+                    alert('Por favor, suelta un archivo .txt');
+                }
+            }, false);
+            
+            function readFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    inputText.value = e.target.result;
+                };
+                reader.readAsText(file);
+            }
+
+            // --- API Call Logic ---
+            analyzeButton.addEventListener('click', async () => {
+                const userInput = inputText.value.trim();
+                if (!userInput) {
+                    alert('El campo de texto no puede estar vacío.');
+                    return;
+                }
                 
-                let reportHTML = `<div class="space-y-6">`;
-                
-                // Summary Card
-                reportHTML += `
-                    <div class="bg-gray-700 p-4 rounded-lg">
-                        <h3 class="text-xl font-bold text-yellow-400 mb-2">${data.application_name}</h3>
-                        <p class="text-gray-300 text-sm mb-2"><span class="font-semibold">Report ID:</span> ${data.report_id}</p>
-                        <p class="text-gray-300">${data.summary}</p>
-                    </div>
-                `;
+                setLoading(true);
+                jsonOutput.textContent = 'Procesando...';
+                reportData = null;
 
-                // Detectors Title
-                reportHTML += `<h3 class="text-2xl font-bold text-white pt-4 border-t border-gray-700">Detectores Priorizados</h3>`;
+                try {
+                    // Assuming the API is running on localhost:8000
+                    const response = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ user_input: userInput }),
+                    });
 
-                // Detectors Cards
-                data.prioritized_detectors.forEach(detector => {
-                    const riskColor = {
-                        'Alto': 'text-red-400',
-                        'Medio': 'text-yellow-400',
-                        'Bajo': 'text-green-400'
-                    }[detector.risk_level] || 'text-gray-400';
-                    // ...continúa el renderizado de tarjetas...
-                });
-                // ...continúa el renderizado del reporte...
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    // The report_json is a string that needs to be parsed
+                    const parsedReport = JSON.parse(result.report_json);
+                    reportData = parsedReport;
 
-                                            const reportData = await response.json();
-                                            renderReport(reportData);
+                    jsonOutput.textContent = JSON.stringify(parsedReport, null, 2);
+                    downloadButton.disabled = false;
 
-                                        } catch (error) {
-                                            console.error('Error al realizar el análisis:', error);
-                                            renderError(error.message);
-                                        } finally {
-                                            setLoadingState(false);
-                                        }
-                                    });
+                } catch (error) {
+                    console.error('Error during analysis:', error);
+                    jsonOutput.textContent = `Error al procesar la solicitud:\n\n${error.message}`;
+                    downloadButton.disabled = true;
+                } finally {
+                    setLoading(false);
+                }
+            });
 
-                                    elements.exampleButtons.forEach(button => {
-                                        button.addEventListener('click', () => {
-                                            const exampleId = button.dataset.example;
-                                            elements.userInput.value = examples[exampleId];
-                                            elements.userInput.dispatchEvent(new Event('input'));
-                                        });
-                                    });
-                                });
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    loader.classList.remove('hidden');
+                    analyzeButton.disabled = true;
+                    analyzeButton.textContent = 'Analizando...';
+                } else {
+                    loader.classList.add('hidden');
+                    analyzeButton.disabled = false;
+                    analyzeButton.textContent = 'Analizar';
+                }
+            }
+            
+            // --- Download Logic ---
+            downloadButton.addEventListener('click', () => {
+                if (!reportData) return;
+
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "security_report.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+        });
+    </script>
+</body>
+</html>

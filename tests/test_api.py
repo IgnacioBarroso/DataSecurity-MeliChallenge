@@ -25,14 +25,12 @@ def test_analyze_endpoint_success(mock_crew_service):
     Verifica que el router llama al servicio y devuelve una respuesta 200 OK con el JSON correcto.
     """
     # 1. Configuración del Mock
-    # El servicio devuelve un string JSON, que es el resultado final del crew.
-    mock_result_json_str = json.dumps(
-        {
-            "report_id": "api-test-success-123",
-            "summary": "Reporte generado exitosamente desde el mock del servicio.",
-        }
-    )
-    mock_crew_service.return_value = mock_result_json_str
+    # El servicio debe devolver un dict con las claves correctas para AnalysisResponse
+    mock_result_dict = {
+        "report_json": "{\"ok\": true}",
+        "session_id": "api-test-success-123",
+    }
+    mock_crew_service.return_value = mock_result_dict
 
     # 2. Petición a la API
     response = client.post("/api/analyze", json={"user_input": "Describo mi app."})
@@ -42,11 +40,8 @@ def test_analyze_endpoint_success(mock_crew_service):
     mock_crew_service.assert_awaited_once()  # Verificar que la corutina fue esperada (awaited)
 
     response_json = response.json()
-    assert response_json["report_id"] == "api-test-success-123"
-    assert (
-        response_json["summary"]
-        == "Reporte generado exitosamente desde el mock del servicio."
-    )
+    assert response_json["session_id"] == "api-test-success-123"
+    assert response_json["report_json"] == "{\"ok\": true}"
 
 
 def test_analyze_endpoint_service_error(mock_crew_service):

@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clona el servidor MCP oficial de MITRE ATT&CK
+RUN git clone --depth=1 https://github.com/stoyky/mitre-attack-mcp.git /app/mitre-attack-mcp
+
+WORKDIR /app/mitre-attack-mcp
+
+# Instalar dependencias del proyecto
+RUN pip install --no-cache-dir -U pip wheel setuptools \
+    && pip install --no-cache-dir .
+
+# Exponer el puerto por defecto del servidor (ajustable vía env)
+EXPOSE 8080
+
+# Ejecutar el servidor MCP
+CMD ["python", "-m", "mitre_attack_mcp.server"]
+

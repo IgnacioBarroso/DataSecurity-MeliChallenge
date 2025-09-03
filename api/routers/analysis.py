@@ -25,7 +25,11 @@ async def analyze_ecosystem(request: AnalysisRequest):
         logging.info("Recibida solicitud de análisis para la arquitectura MCP...")
         result = await crew_service.run_analysis_crew(request.user_input)
         logging.info(f"Análisis MCP completado.")
-        return AnalysisResponse(**result)
+        # Adaptar el resultado para AnalysisResponse
+        return AnalysisResponse(
+            report_json=result.get("report_json", "{}"),
+            session_id=result.get("session_id")
+        )
     except ValueError as ve:
         logging.error(f"Input inválido: {ve}")
         raise HTTPException(status_code=422, detail=str(ve))

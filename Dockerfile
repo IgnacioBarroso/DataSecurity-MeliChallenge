@@ -1,55 +1,58 @@
 
 # Dockerfile
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 # --- Etapa 1: Builder ---
-# Esta etapa instala todas las dependencias, incluyendo las de desarrollo.
 FROM python:3.11-slim AS builder
+
+# Dependencias del sistema necesarias para build/ingesta (lxml/unstructured)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar Poetry
 ENV POETRY_HOME="/opt/poetry"
 ENV PATH="$POETRY_HOME/bin:$PATH"
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Configurar Poetry para no crear entornos virtuales dentro del proyecto
-RUN poetry config virtualenvs.create false
+# Crear venv dentro del proyecto para poder copiarlo
+RUN poetry config virtualenvs.create true \
+    && poetry config virtualenvs.in-project true
 
 WORKDIR /app
 
-# Copiar solo los archivos de dependencias para aprovechar el cache de Docker
-COPY pyproject.toml poetry.lock ./ 
+# Copiar solo los archivos de dependencias para aprovechar cache
+COPY pyproject.toml poetry.lock ./
 
 # Instalar dependencias de producción
-# --no-dev asegura que los paquetes de testing no se incluyan en la capa final
 RUN poetry install --no-interaction --no-ansi --no-dev
 
 # --- Etapa 2: Final ---
-# Esta etapa crea la imagen final, que es mucho más ligera.
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Dependencias del sistema necesarias en runtime para PDF/Unstructured
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copiar el entorno virtual con las dependencias desde la etapa 'builder'
+# Copiar entorno virtual desde builder y usarlo
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copiar todo el código de la aplicación
+# Copiar el código de la aplicación
 COPY . .
-
-# Ejecutar la ingesta de datos durante el build para que la base de datos esté lista
-# Nota: Esto asume que el PDF está en el contexto de build.
-RUN python -m src.rag_system.ingest
 
 # Exponer el puerto de la API
 EXPOSE 8000
 
 # Añadir usuario no-root
 RUN useradd --create-home --shell /bin/bash appuser
-USER appuser
-
-# Comando para iniciar el servidor de la API
 USER appuser
 
 # Comando para iniciar el servidor de la API

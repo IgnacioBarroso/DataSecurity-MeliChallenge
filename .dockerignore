@@ -1,0 +1,20 @@
+# Ignora todo por defecto
+**/*
+
+# Solo incluye lo necesario para el build principal
+!pyproject.toml
+!poetry.lock
+!src/
+!api/
+!main.py
+!README.md
+!Dockerfile
+!Dockerfile.ingest
+!docker/
+!data/
+!vector_db/
+!logs/
+!frontend/
+!tests/
+!config.py
+!requirements.txt

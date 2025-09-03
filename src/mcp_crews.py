@@ -12,6 +12,8 @@ from src.llm_provider import get_llm
 from src.models import ThreatFindings, EnrichedFindings, FinalReport
 import logging
 from src.agents import threat_analyzer_agent, risk_classifier_agent, reporting_agent
+import json
+from src.trace import set_trace_logger
 
 
 llm = get_llm()
@@ -29,25 +31,25 @@ class SecurityAnalysisCrew:
         self.reporter = reporting_agent(llm_override=self.llm)
 
     def run(self, user_input: str):
-        # 1. Task: Análisis de amenazas
+        # 1. Task: Threat analysis
         analysis_task = Task(
-            description=f"Analiza el input del usuario y encuentra hasta 5 amenazas relevantes usando DBIR: {user_input}",
-            expected_output="Lista de amenazas (ThreatFinding) en JSON.",
+            description=f"Analyze the user's input and find up to 5 relevant threats using DBIR: {user_input}",
+            expected_output="List of threats (ThreatFinding) in JSON.",
             agent=self.analyzer,
             output_pydantic=ThreatFindings,
         )
-        # 2. Task: Clasificación de riesgos
+        # 2. Task: Risk classification
         classification_task = Task(
-            description="Enriquece los hallazgos con MITRE ATT&CK y clasifica el riesgo.",
-            expected_output="Lista de amenazas enriquecidas (EnrichedFinding) en JSON.",
+            description="Enrich the findings with MITRE ATT&CK and classify the risk.",
+            expected_output="List of enriched threats (EnrichedFinding) in JSON.",
             agent=self.classifier,
             context=[analysis_task],
             output_pydantic=EnrichedFindings,
         )
-        # 3. Task: Generación de reporte final
+        # 3. Task: Final report generation
         reporting_task = Task(
-            description="Genera el reporte final en Markdown con detectores priorizados y accionables.",
-            expected_output="Reporte final (FinalReport) en JSON.",
+            description="Generate the final report in valid JSON format (FinalReport schema) with prioritized and actionable detectors.",
+            expected_output="Final report (FinalReport) in JSON.",
             agent=self.reporter,
             context=[classification_task],
             output_pydantic=FinalReport,
@@ -58,7 +60,46 @@ class SecurityAnalysisCrew:
             process=Process.sequential,
             verbose=True
         )
+        # Establecer trace logger global y ejecutar
+        set_trace_logger(self.agent_trace_logger)
         result = crew.kickoff()
+        try:
+            logger = self.agent_trace_logger or logging.getLogger("agent_trace")
+            session_id = logger.name.replace("agent_trace_", "") if logger.name.startswith("agent_trace_") else None
+            # Log de inputs/outputs de cada tarea (best-effort) usando JsonFormatter extras
+            logger.info(
+                "task_analysis_completed",
+                extra={
+                    "session_id": session_id,
+                    "task_name": "analysis",
+                    "input_data": user_input,
+                    "output_data": getattr(analysis_task, "output", None),
+                },
+            )
+            logger.info(
+                "task_classification_completed",
+                extra={
+                    "session_id": session_id,
+                    "task_name": "classification",
+                    "input_data": getattr(analysis_task, "output", None),
+                    "output_data": getattr(classification_task, "output", None),
+                },
+            )
+            logger.info(
+                "task_reporting_completed",
+                extra={
+                    "session_id": session_id,
+                    "task_name": "reporting",
+                    "input_data": getattr(classification_task, "output", None),
+                    "output_data": getattr(reporting_task, "output", None),
+                },
+            )
+        except Exception:
+            # Si CrewAI no expone outputs, ignorar silenciosamente
+            pass
+        finally:
+            # Limpiar trace logger global
+            set_trace_logger(None)
         return result
 
 
@@ -71,5 +112,7 @@ def run_mcp_analysis(user_input: str, agent_trace_logger=None, llm_instance=None
     logger = agent_trace_logger or logging.getLogger("mcp_analysis")
     crew = SecurityAnalysisCrew(agent_trace_logger=logger, llm_instance=llm_instance)
     result = crew.run(user_input)
-    import json
-    return json.dumps(result) if not isinstance(result, str) else result
+    # Si es un modelo Pydantic, convertir a dict
+    if hasattr(result, 'dict'):
+        result = result.dict()
+    return result

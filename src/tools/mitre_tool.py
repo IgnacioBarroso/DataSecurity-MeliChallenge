@@ -1,9 +1,23 @@
-# Fake para mocking en tests
-attack = None
+def normalize_query(query):
+    # Recursively extract 'description' if present, until a string or None
+    seen = set()
+    while isinstance(query, dict):
+        # Prevent infinite loops on malformed dicts
+        id_query = id(query)
+        if id_query in seen:
+            break
+        seen.add(id_query)
+        query = query.get('description', '') or ''
+    if not isinstance(query, str):
+        query = str(query)
+    return query
+ 
 from crewai.tools import tool
+from typing import Any
 from attackcti import attack_client
 from src.logging_config import logging
 import json
+from src.trace import get_trace_logger
 
 # Inicializa el cliente para la API de MITRE ATT&CK.
 _attack = None
@@ -26,14 +40,21 @@ def _generate_keywords(query: str) -> list:
     return [query, query.lower()]
 
 
-@tool("MITRE ATT&CK Technique Query Tool")
-def mitre_attack_query_tool(query: str) -> str:
+def _mitre_attack_query_tool(query: Any) -> str:
+
     """
-    Busca técnicas en el framework MITRE ATT&CK basadas en una palabra clave, sinónimo o descripción.
-    Es útil para mapear un vector de amenaza abstracto a TTPs (Tácticas, Técnicas y Procedimientos) concretos.
-    Por ejemplo, si el vector es 'Credential Stuffing', esta herramienta puede encontrar 'T1110.003 - Password Spraying'.
+    Searches for techniques in the MITRE ATT&CK framework based on a keyword, synonym, or description.
+    Useful for mapping an abstract threat vector to concrete TTPs (Tactics, Techniques, and Procedures).
+    For example, if the vector is 'Credential Stuffing', this tool can find 'T1110.003 - Password Spraying'.
     """
-    logger.info(f"Buscando técnicas MITRE ATT&CK para: '{query}'")
+    query = normalize_query(query)
+    logger.info(f"Searching MITRE ATT&CK techniques for: '{query}'")
+    tlogger = get_trace_logger()
+    if tlogger:
+        tlogger.info(
+            "tool_invocation",
+            extra={"task_name": "MITRE ATT&CK Technique Query Tool", "input_data": {"query": query}},
+        )
     try:
         client = get_attack_client()
         keywords = _generate_keywords(query)
@@ -44,34 +65,50 @@ def mitre_attack_query_tool(query: str) -> str:
                 if results:
                     all_results.extend(results)
             except Exception as e:
-                logger.warning(f"Error buscando con keyword '{kw}': {e}")
-        # Eliminar duplicados por ID
-        unique = {tech.id: tech for tech in all_results}.values()
+                logger.warning(f"Error searching with keyword '{kw}': {e}")
+
+        # Remove duplicates by ID (dictionary access)
+        unique = {tech["id"]: tech for tech in all_results if isinstance(tech, dict) and "id" in tech}.values()
         if not unique:
             logger.error(
-                f"No se encontraron técnicas de MITRE ATT&CK para la consulta: '{query}'."
+                f"No MITRE ATT&CK techniques found for query: '{query}'."
             )
-            return f"No se encontraron técnicas de MITRE ATT&CK para la consulta: '{query}'."
+            return f"No MITRE ATT&CK techniques found for query: '{query}'."
 
         formatted_results = []
-        for tech in list(unique)[:5]:  # Limita a los 5 resultados más relevantes
+        for tech in list(unique)[:5]:  # Limit to the 5 most relevant results
             formatted_results.append(
-                f"- ID: {tech.id}\n"
-                f"  Nombre: {tech.name}\n"
-                f"  Descripción: {tech.description.split('.')[0]}."
+                f"- ID: {tech['id']}\n"
+                f"  Name: {tech['name']}\n"
+                f"  Description: {tech.get('description', '').split('.')[0]}."
             )
-        logger.info(f"Técnicas encontradas: {[t.id for t in list(unique)[:5]]}")
+        logger.info(f"Techniques found: {[t['id'] for t in list(unique)[:5]]}")
+        if tlogger:
+            tlogger.info(
+                "tool_result",
+                extra={
+                    "task_name": "MITRE ATT&CK Technique Query Tool",
+                    "output_data": "\n".join(formatted_results)[:1000],
+                },
+            )
         return "\n".join(formatted_results)
     except Exception as e:
-        logger.error(f"Ocurrió un error al buscar en MITRE ATT&CK: {e}")
-        return f"Ocurrió un error al buscar en MITRE ATT&CK: {e}"
+        logger.error(f"An error occurred while searching MITRE ATT&CK: {e}")
+        if tlogger:
+            tlogger.info(
+                "tool_error",
+                extra={"task_name": "MITRE ATT&CK Technique Query Tool", "output_data": str(e)},
+            )
+        return f"An error occurred while searching MITRE ATT&CK: {e}"
+
+mitre_attack_query_tool = tool("MITRE ATT&CK Technique Query Tool")(_mitre_attack_query_tool)
 
 
 @tool("MITRE ATT&CK Technique Details Tool")
 def get_mitre_technique_details(technique_id_or_name: str) -> str:
     """
-    Obtiene detalles completos de una técnica específica de MITRE ATT&CK dado su ID (ej. T1059) o nombre (ej. Command and Scripting Interpreter).
-    Retorna un JSON con información detallada como tácticas asociadas, descripción completa, y referencias.
+    Gets full details of a specific MITRE ATT&CK technique given its ID (e.g., T1059) or name (e.g., Command and Scripting Interpreter).
+    Returns a JSON with detailed information such as associated tactics, full description, and references.
     """
     try:
         client = get_attack_client()
@@ -80,6 +117,7 @@ def get_mitre_technique_details(technique_id_or_name: str) -> str:
         # Try to find by ID first
         if technique_id_or_name.startswith("T") and len(technique_id_or_name) >= 5:
             tech = client.get_technique_by_id(technique_id_or_name)
+            # If not found, get_technique_by_id may return None
 
         # If not found by ID, try to find by name
         if tech is None:
@@ -87,38 +125,55 @@ def get_mitre_technique_details(technique_id_or_name: str) -> str:
             results = client.get_techniques_by_content(technique_id_or_name)
             for r in results:
                 if (
-                    r.name.lower() == technique_id_or_name.lower()
-                    or r.id.lower() == technique_id_or_name.lower()
+                    (isinstance(r, dict) and (
+                        r.get("name", "").lower() == technique_id_or_name.lower() or
+                        r.get("id", "").lower() == technique_id_or_name.lower()
+                    ))
                 ):
                     tech = r
                     break
 
         if tech is None:
             logging.warning(
-                f"No se encontraron detalles para la técnica de MITRE ATT&CK: '{technique_id_or_name}'."
+                f"No details found for MITRE ATT&CK technique: '{technique_id_or_name}'."
             )
-            return f"No se encontraron detalles para la técnica de MITRE ATT&CK: '{technique_id_or_name}'."
+            return f"No details found for MITRE ATT&CK technique: '{technique_id_or_name}'."
 
         details = {
-            "id": tech.id,
-            "name": tech.name,
-            "description": tech.description,
-            "tactics": [t.name for t in tech.tactics] if tech.tactics else [],
-            "platforms": tech.platforms if tech.platforms else [],
-            "data_sources": tech.data_sources if tech.data_sources else [],
-            "detection": (
-                tech.detection if tech.detection else "No detection guidance available."
-            ),
-            "references": (
-                [ref.url for ref in tech.references] if tech.references else []
-            ),
+            "id": tech["id"],
+            "name": tech["name"],
+            "description": tech.get("description", ""),
+            "tactics": [t["name"] for t in tech.get("tactics", [])] if tech.get("tactics") else [],
+            "platforms": tech.get("platforms", []),
+            "data_sources": tech.get("data_sources", []),
+            "detection": tech.get("detection", "No detection guidance available."),
+            "references": [ref["url"] for ref in tech.get("references", [])] if tech.get("references") else [],
         }
-        return json.dumps(details, indent=2)
+        out = json.dumps(details, indent=2)
+        tlogger = get_trace_logger()
+        if tlogger:
+            tlogger.info(
+                "tool_result",
+                extra={
+                    "task_name": "MITRE ATT&CK Technique Details Tool",
+                    "output_data": out[:1000],
+                },
+            )
+        return out
 
     except Exception as e:
         logging.error(
-            f"Ocurrió un error al obtener detalles de la técnica de MITRE ATT&CK: {e}"
+            f"An error occurred while getting MITRE ATT&CK technique details: {e}"
         )
+        tlogger = get_trace_logger()
+        if tlogger:
+            tlogger.info(
+                "tool_error",
+                extra={
+                    "task_name": "MITRE ATT&CK Technique Details Tool",
+                    "output_data": str(e),
+                },
+            )
         return (
-            f"Ocurrió un error al obtener detalles de la técnica de MITRE ATT&CK: {e}"
+            f"An error occurred while getting MITRE ATT&CK technique details: {e}"
         )

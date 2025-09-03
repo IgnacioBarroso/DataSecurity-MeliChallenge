@@ -1,28 +1,88 @@
-
 version: '3.8'
 
 services:
+  mitre-mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitre-mcp
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080', timeout=2)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   datasec-agent:
-    image: meli-datasec-challenge-app
     build: .
+    image: meli-datasec-challenge-app
     env_file:
       - .env
+    environment:
+      # Asegurar que el agente apele al MCP externo por HTTP
+      - MCP_EXTERNAL_HOST=mitre-mcp
+      - MCP_EXTERNAL_PORT=8080
+      - MCP_EXTERNAL_PROTOCOL=http
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data:ro
       - ./logs:/app/logs
       - ./vector_db:/app/vector_db
     ports:
       - "8000:8000"
-    stop_grace_period: 1s
+    restart: unless-stopped
+    depends_on:
+      - mitre-mcp
+      - redis
+      - chromadb
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
+  # Job de ingesta (ejecutar 1 vez o cuando cambie el PDF)
+  dbir-ingest:
+    build: .
+    image: meli-datasec-challenge-app
+    env_file:
+      - .env
+    command: ["python", "-m", "src.rag_system.ingest"]
+    volumes:
+      - ./data:/app/data:ro
+      - ./vector_db:/app/vector_db
+    restart: "no"
+    depends_on:
+      - redis
+      - chromadb
+
+  # Servicio opcional de ChromaDB remoto (no requerido por defecto)
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./vector_db:/chroma/chroma/
+    environment:
+      - IS_PERSISTENT=TRUE
+    restart: unless-stopped
+
+  # Servicio opcional de Ollama para LLM local
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:latest
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ollama:/root/.ollama
+    restart: unless-stopped
 
 volumes:
-  ollama_data:
+  ollama:
+  # vector_db lo provee el bind-mount
 
-# Nota: Para usar Ollama desde la app, la variable OLLAMA_BASE_URL debe ser http://ollama:11434
+  # Docstore Redis (persistente y simple)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped

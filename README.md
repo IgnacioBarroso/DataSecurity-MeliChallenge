@@ -1,144 +1,142 @@
 # Sistema Multiagente Autónomo para la Detección de Amenazas
 
-## 1. Descripción General del Proyecto
+Proyecto para el “DataSec Challenge” de Mercado Libre. Implementa un sistema multiagente con RAG (DBIR 2025), mapeo a MITRE ATT&CK (MCP externo), generación de reportes priorizados y trazabilidad completa por sesión.
 
-Este proyecto es una implementación del "DataSec Challenge" de Mercado Libre. El objetivo es desarrollar un sistema multiagente autónomo que utiliza IA para analizar inteligencia de amenazas (basada en el Verizon DBIR 2025) en el contexto de una aplicación interna específica, y generar recomendaciones priorizadas para el desarrollo de nuevos mecanismos detectivos de seguridad.
+## Arquitectura General
 
-## 2. Arquitectura - Patrón MCP (Model-Controller-Plane)
+- 3 agentes secuenciales (CrewAI): Analizador → Clasificador → Reporte.
+- RAG sobre DBIR (PDF) con Chroma DB (REST) y docstore persistente (Redis) usando ParentDocumentRetriever.
+- MCP externo de MITRE ATT&CK en contenedor dedicado (clona el repo oficial y expone herramientas MCP por HTTP).
+- API FastAPI con endpoints de análisis y RAG; UI estática servida por la API; healthchecks de servicios.
+- Trazas por sesión en JSON para auditar inputs/outputs de tareas y herramientas.
 
-La solución implementa una arquitectura MCP (Model Context Protocol) de **3 agentes secuenciales**, orquestados por CrewAI. Cada agente toma el output del anterior y lo enriquece, siguiendo un flujo lineal, robusto y auditable:
+## Requisitos
 
-1. **ThreatAnalyzerAgent (Agente Analizador):**
-    - Recibe el input del usuario (descripción de la aplicación).
-    - Analiza debilidades y utiliza la herramienta RAG (DBIRRAGTool) para identificar hasta 5 amenazas relevantes del informe DBIR.
-    - Output: Lista estructurada de hallazgos iniciales.
-2. **RiskClassifierAgent (Agente Clasificador):**
-    - Toma los hallazgos del analizador.
-    - Usa la herramienta MitreAttackTool para mapear cada riesgo a TTPs (MITRE ATT&CK) y enriquecer la información.
-    - Output: Hallazgos enriquecidos con mapeo MITRE.
-3. **ReportingAgent (Agente de Reporte):**
-    - Recibe los datos enriquecidos del clasificador.
-    - Genera el reporte final en Markdown, priorizando detectores y pasos accionables claros para equipos de seguridad.
+- Python 3.11+
+- Docker + Docker Compose
+- Clave de API de OpenAI (`OPENAI_API_KEY`)
 
-Todo el flujo está validado con modelos Pydantic y cuenta con logging exhaustivo para trazabilidad. La solución es 100% containerizada y soporta tanto LLM cloud (OpenAI) como local (Ollama).
+## Configuración Rápida (Docker)
 
-## 🚀 Configuración y Ejecución
+1) Copia y edita entorno
+- `cp .env.example .env`
+- Define al menos `OPENAI_API_KEY`.
 
-Este proyecto utiliza Poetry para la gestión de dependencias y Poe the Poet para la ejecución de tareas.
+2) Construye imágenes
+- `docker-compose build`
 
-### Prerrequisitos
+3) Ingesta del DBIR (una vez o cuando cambie el PDF)
+- `docker-compose run --rm dbir-ingest`
 
-*   Instalar Python 3.11 o superior.
-*   Instalar Poetry: Sigue las [instrucciones oficiales de instalación](https://python-poetry.org/docs/#installation).
-*   **Clave de API de OpenAI:** Necesitarás una clave de API válida para OpenAI.
+4) Levanta servicios principales
+- `docker-compose up -d mitre-mcp chromadb redis datasec-agent`
+- Accesos:
+  - API: `http://localhost:8000` (docs `/docs`, UI `/ui`, health `/health`)
+  - MCP MITRE: `http://localhost:8080`
+  - ChromaDB REST: `http://localhost:8001`
 
-### Instalación del Proyecto (Desarrollo Local)
+5) Detener servicios
+- `docker-compose down`
 
-1.  **Clona el repositorio:**
-    ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd meli-datasec-challenge
-    ```
+## Configuración (.env)
 
-2.  **Crea tu archivo de entorno:**
-    Copia el archivo de ejemplo y rellena tu clave de API de OpenAI.
-    ```bash
-    cp .env.example .env
-    ```
+- `OPENAI_API_KEY`: requerido (embeddings y LLM)
+- `OPENAI_MODEL_NAME`: por defecto `gpt-4.1-nano`
+- `COHERE_API_KEY`: opcional (re-ranking Cohere). Si falta, se aplica MMR local (semántico)
+- `CHROMA_DB_HOST`/`CHROMA_DB_PORT`: por defecto `chromadb:8000` (servicio REST de compose)
+- `REDIS_HOST`/`REDIS_PORT`/`REDIS_DB`: por defecto `redis:6379` (habilita docstore persistente)
+- `LLM_PROVIDER`: `openai` (por defecto) o `ollama` (local)
+  - Para Ollama: `OLLAMA_BASE_URL` y `OLLAMA_MODEL` (p.ej., `llama3`). Servicio opcional en compose.
 
-3.  **Configura tu clave de OpenAI:**
-    Edita el archivo `.env` y añade tu clave de API de OpenAI:
-    ```
-    OPENAI_API_KEY="tu_clave_de_api_de_openai_aqui"
-    # Opcional: Puedes especificar un modelo diferente si lo deseas
-    # OPENAI_MODEL_NAME="gpt-4-turbo"
-    ```
+## API Endpoints
 
-4.  **Instala las dependencias y crea la base de datos RAG:**
-    Este comando único instalará todo lo necesario y ejecutará el script de ingesta del DBIR.
-    ```bash
-    poetry install
-    poetry run poe ingest
-    ```
-    *Nota: La primera vez, la ingesta puede tardar varios minutos.*
+- `GET /`: estado básico de la API
+- `GET /health`: healthcheck enriquecido
+  - Campos: `api`, `redis`, `vector_db`, `mcp`, `mcp_dns`, `chroma`, `chroma_collection`, `chroma_count`
+- `POST /api/analyze`: ejecuta pipeline multiagente (3 agentes)
+  - Request: `{ "user_input": "texto..." }`
+  - Response: `{ "report_json": "{...}", "session_id": "..." }`
+- `POST /api/rag/ask`: pregunta directa al RAG
+  - Request: `{ "question": "..." }`
+  - Response: `{ "answer": "...", "context_preview": "..." }`
+- `POST /api/rag/debug`: auditoría del RAG (documentos, similitudes, selección MMR)
+  - Request: `{ "question": "..." }`
+  - Response: `{ "question": "...", "docs": [{"score": float, "selected": bool, "text_preview": str}, ...] }`
+- UI estática: `GET /ui`
 
-### Comandos Principales con Poe the Poet (Desarrollo Local)
+## CLI
 
-Una vez instalado, puedes usar los siguientes comandos desde la raíz del proyecto:
+- Analizar archivo (pipeline completo):
+  - `python main.py analyze path/al/archivo.txt --output salida.json`
+- Pregunta directa al RAG:
+  - `python main.py rag "¿Cuál es el vector de ataque más común?"`
 
-*   **Iniciar la API (modo desarrollo):**
-    ```bash
-    poetry run poe api
-    ```
-    La API estará disponible en `http://localhost:8000`.
+## RAG: Ingesta y Recuperación
 
-*   **Ejecutar la suite de tests:**
-    ```bash
-    poetry run poe test
-    ```
+- Ingesta (`docker-compose run --rm dbir-ingest`):
+  - Procesa `data/input/2025-dbir-data-breach-investigations-report.pdf` con Unstructured
+  - Divide jerárquicamente (padre 2000c, hijo 400c)
+  - Indexa en Chroma (colección `dbir_2025`) y guarda docstore en Redis si está configurado
+- Recuperación (consultas):
+  - ParentDocumentRetriever con Redis Docstore (si activo) o retriever vectorial simple
+  - Re-ranking: CohereRerank si `COHERE_API_KEY` está definido; de lo contrario, MMR semántico local sobre hasta 20 documentos (con embeddings OpenAI)
+  - Contexto sintetizado y limitado para el prompt del LLM
 
-*   **Ejecutar tests con reporte de cobertura:**
-    ```bash
-    poetry run poe test-cov
-    ```
+## MCP MITRE ATT&CK
 
-*   **Formatear el código (con Black):**
-    ```bash
-    poetry run poe format
-    ```
+- Servicio `mitre-mcp` clona `https://github.com/stoyky/mitre-attack-mcp` y expone `:8080`
+- Herramientas externas se cargan “lazy”; si MCP no está disponible, se usa `attackcti` local
 
-## 🐳 Ejecución con Docker (Recomendado para Producción/Despliegue)
+## Trazabilidad y Logs
 
-La aplicación está completamente containerizada para facilitar su despliegue.
+- Por cada ejecución se genera un `session_id` y se registran:
+  - `logs/session_<id>.log`: logs generales
+  - `logs/session_<id>_trace.json`: trazas estructuradas de tareas y herramientas (input/output/errors)
 
-1.  **Crea tu archivo de entorno:**
-    Asegúrate de tener un archivo `.env` configurado con tu `OPENAI_API_KEY` como se describe en la sección de instalación.
+## Evaluación de Calidad (RAGAs)
 
-2.  **Construye y levanta los contenedores:**
-    ```bash
-    docker-compose up --build
-    ```
-    Esto construirá la imagen de Docker (incluyendo la ingesta del DBIR) y levantará el servicio de la API. La API estará disponible en `http://localhost:8000`.
+- Script: `evaluation/validate_rag.py`
+  - Usa el pipeline real (`ask_rag`) para obtener `answers` y `retrieved_contexts`
+  - Calcula métricas `context_precision` y `faithfulness`
+- Ejecutar:
+  - `poetry install --with dev`
+  - `poetry run python evaluation/validate_rag.py`
 
-3.  **Acceder a la API:**
-    Puedes interactuar con la API a través de `http://localhost:8000/docs` para ver la documentación de Swagger UI.
+## Desarrollo Local (Poetry)
 
-4.  **Detener los contenedores:**
-    ```bash
-    docker-compose down
-    ```
+- Instalar dependencias: `poetry install`
+- Ingesta local (fuera de Docker): `poetry run poe ingest` (requiere `.env` coherente)
+- API (dev): `poetry run poe api`
+- Tests: `poetry run poe test` (E2E desactivado por defecto; exporta `RUN_E2E=1` para habilitar)
+- Formato: `poetry run poe format`
 
-## 3. Configuración del Proyecto
+## Estructura de Carpetas (Clave)
 
-La configuración se gestiona a través de variables de entorno y el archivo `.env`. Consulta `src/config.py` para ver todas las variables disponibles y sus valores por defecto.
+- `src/mcp_crews.py`: orquestación de agentes y trazas por tarea
+- `src/agents.py`: definición de los 3 agentes
+- `src/tools/`: herramientas (DBIR RAG, MITRE, cliente MCP externo)
+- `src/rag_system/`: ingesta y retriever avanzado (ParentDocumentRetriever + Redis Docstore)
+- `src/config.py`: configuración (Pydantic Settings)
+- `src/trace.py`: control del trace logger global
+- `api/`: FastAPI (routers, servicios, app)
+- `data/input/`: PDF del DBIR
+- `frontend/`: UI estática servida por la API en `/ui`
+- `docker-compose.yml`, `docker/`: contenedores (MCP, app), servicios (Chroma, Redis, Ollama opcional)
 
-## 4. Estructura de Archivos Clave
+## Consejos y Solución de Problemas
 
-*   `src/mcp_crews.py`: Orquestación MCP y definición de la Crew de 3 agentes.
-*   `src/agents.py`: Define los 3 agentes MCP (Analizador, Clasificador, Reporte).
-*   `src/llm_provider.py`: Selección y configuración de LLM (OpenAI/Ollama).
-*   `src/config.py`: Configuración de la aplicación usando Pydantic Settings.
-*   `api/`: Implementación de la API FastAPI.
-*   `data/input/`: Informe DBIR (PDF).
-*   `data/output/`: Reportes generados.
-*   `vector_db/`: Base de datos vectorial para el RAG.
-*   `tests/`: Tests unitarios y de integración.
-*   `evaluation/validate_rag.py`: Script de evaluación de calidad RAG con RAGAs.
+- Ingesta no ejecuta en build: usa `docker-compose run --rm dbir-ingest`
+- Health `/health` muestra `chroma_collection: missing`: ejecuta la ingesta y verifica que `chromadb` está saludable
+- Sin Cohere: el reranking MMR está activo y ofrece buena precisión sin costo adicional
+- MCP offline: el sistema continúa con `attackcti` local; para habilitar MCP levanta `mitre-mcp`
+- Ollama: opcional; si no usas LLM local, omite el servicio
 
-## 5. Evaluación de Calidad RAG (RAGAs)
+## Cumplimiento del Challenge
 
-Puedes evaluar la calidad del sistema RAG ejecutando el script `evaluation/validate_rag.py`, que utiliza el framework [RAGAs](https://github.com/explodinggradients/ragas) para calcular métricas como `context_precision` y `faithfulness` sobre un dataset de preguntas del DBIR.
+- 3 agentes con roles claros y validación Pydantic
+- DBIR 2025 como base (RAG jerárquico, Chroma + Redis docstore)
+- Mapeo MITRE ATT&CK con MCP externo y fallback local
+- Reporte final JSON priorizado y accionable
+- Trazabilidad completa por agente/herramienta
+- Dockerización profesional y reproducible (servicios separados, healthchecks, volúmenes persistentes)
 
-### Ejecutar la evaluación RAG
-
-1. Instala las dependencias de desarrollo (incluye ragas):
-    ```bash
-    poetry install --with dev
-    ```
-2. Ejecuta el script de evaluación:
-    ```bash
-    poetry run python evaluation/validate_rag.py
-    ```
-3. Se imprimirá un reporte con las métricas principales.
-
-Puedes modificar el dataset de preguntas en el propio script para adaptarlo a tus necesidades.

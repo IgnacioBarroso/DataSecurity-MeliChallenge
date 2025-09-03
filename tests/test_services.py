@@ -19,7 +19,7 @@ async def test_run_analysis_crew_success(mock_setup_logger, mock_run_mcp):
     Verifica que el servicio llama al orquestador MCP y devuelve el resultado.
     """
     # 1. Configuración del mock
-    mock_run_mcp.return_value = '{"report_id": "service-test-123"}'
+    mock_run_mcp.return_value = {"report_id": "service-test-123", "application_name": "App", "summary": "S", "prioritized_detectors": []}
 
     # Configurar el mock del logger para que devuelva una instancia consistente
     mock_logger_instance = MagicMock()  # Una instancia de MagicMock para el logger
@@ -33,7 +33,8 @@ async def test_run_analysis_crew_success(mock_setup_logger, mock_run_mcp):
     mock_run_mcp.assert_called_once_with(
         "Input de prueba para el servicio.", mock_logger_instance
     )
-    assert result == '{"report_id": "service-test-123"}'
+    assert isinstance(result, dict)
+    assert result.get("report_json", "").startswith("{")
 
 
 @patch("api.services.crew_service.run_mcp_analysis")

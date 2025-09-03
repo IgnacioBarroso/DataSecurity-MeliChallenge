@@ -1,18 +1,17 @@
 """
-Script de evaluación de calidad RAG usando RAGAs para el Meli Challenge.
-- Define un dataset de preguntas sobre el DBIR
-- Ejecuta el agente Analizador sobre cada pregunta
-- Calcula métricas context_precision y faithfulness
-- Imprime un reporte de evaluación
+Evaluación de calidad RAG con RAGAs para el Meli Challenge.
+- Usa el pipeline real de RAG (ask_rag) para obtener respuestas
+- Usa el contexto devuelto por el pipeline como retrieved_contexts
 """
 
-import os
+from typing import List
 from ragas.metrics import context_precision, faithfulness
 from ragas.evaluation import evaluate
 from ragas import Dataset
-from typing import List
+import asyncio
 
-# --- Dataset de ejemplo (puedes expandirlo) ---
+
+# Dataset de ejemplo (modificable)
 EVAL_DATA = [
     {
         "question": "¿Cuál es el vector de ataque más común reportado en el DBIR 2025?",
@@ -24,52 +23,29 @@ EVAL_DATA = [
         "ground_truth": "El sector salud fue el más afectado por ransomware en 2025.",
         "expected_context": "salud",
     },
-    {
-        "question": "¿Qué técnica MITRE ATT&CK se asocia frecuentemente a ataques de fuerza bruta?",
-        "ground_truth": "La técnica T1110 (Brute Force) es la más asociada.",
-        "expected_context": "T1110",
-    },
-    {
-        "question": "¿Qué porcentaje de brechas involucró credenciales comprometidas?",
-        "ground_truth": "Aproximadamente el 60% de las brechas involucraron credenciales comprometidas.",
-        "expected_context": "credenciales",
-    },
-    {
-        "question": "¿Qué controles recomienda el DBIR para prevenir ataques de ransomware?",
-        "ground_truth": "Backups frecuentes, segmentación de red y entrenamiento de usuarios.",
-        "expected_context": "backups",
-    },
 ]
 
 
-# --- Función para invocar el agente Analizador (debe adaptarse a tu código) ---
-def run_threat_analyzer(question: str) -> dict:
-    """
-    Ejecuta el ThreatAnalyzerAgent sobre la pregunta y retorna dict con 'answer' y 'context'.
-    Debes adaptar esta función a tu pipeline real.
-    """
-    # Ejemplo: importar tu crew y ejecutar solo el analizador
-    from src.mcp_crews import SecurityAnalysisCrew
+async def run_rag(question: str) -> dict:
+    from src.tools.retriever import ask_rag
 
-    crew = SecurityAnalysisCrew()
-    result = crew.run_analysis_only(
-        question
-    )  # Debes implementar este método si no existe
-    return result
+    return await ask_rag(question)
 
 
-# --- Construcción del dataset RAGAs ---
 def build_ragas_dataset(eval_data: List[dict]) -> Dataset:
     questions = [item["question"] for item in eval_data]
     ground_truths = [item["ground_truth"] for item in eval_data]
-    contexts = [item["expected_context"] for item in eval_data]
-    # Simula outputs del sistema (debes mapear a tu output real)
+
     answers = []
     retrieved_contexts = []
     for item in eval_data:
-        output = run_threat_analyzer(item["question"])
+        output = asyncio.run(run_rag(item["question"]))
         answers.append(output.get("answer", ""))
         retrieved_contexts.append(output.get("context", ""))
+
+    # contexts de referencia opcionales (puedes dejarlo vacío si no lo tienes)
+    contexts = [item.get("expected_context", "") for item in eval_data]
+
     return Dataset(
         questions=questions,
         ground_truths=ground_truths,

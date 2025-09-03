@@ -7,6 +7,7 @@ from langchain_chroma import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.storage import InMemoryStore
+from src.rag_system.redis_docstore import RedisDocStore
 from src.config import settings
 
 
@@ -50,23 +51,47 @@ def ingest_dbir_report():
     embedding_model = "text-embedding-3-small"
     from pydantic import SecretStr
     embedding = OpenAIEmbeddings(model=embedding_model, api_key=SecretStr(settings.OPENAI_API_KEY))
-    # El tamaño de embedding para text-embedding-3-small es 1536 (según la doc oficial)
     expected_dim = 1536
-    # Chroma no requiere especificar dimensión si se usa embedding_function, pero lo logueamos
     logging.info(f"Usando modelo de embedding '{embedding_model}' con dimensión esperada: {expected_dim}")
 
     # 2. Definir los splitters jerárquicos
     parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
     child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
 
-    # 3. Configurar el vectorstore y el docstore
-    from pydantic import SecretStr
-    vectorstore = Chroma(
-        collection_name="dbir_hierarchical_v2",
-        embedding_function=embedding,
-        persist_directory=settings.CHROMA_DB_PATH
-    )
-    store = InMemoryStore()
+    # 3. Configurar el vectorstore y el docstore (remoto si hay host/port)
+    chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
+    chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
+    try:
+        from langchain_chroma import Settings as ChromaSettings
+    except ImportError:
+        ChromaSettings = None
+    if chroma_host and chroma_port and ChromaSettings:
+        client_settings = ChromaSettings(
+            chroma_api_impl="rest",
+            chroma_server_host=chroma_host,
+            chroma_server_http_port=chroma_port,
+            anonymized_telemetry=False
+        )
+        vectorstore = Chroma(
+            collection_name=settings.COLLECTION_NAME,
+            embedding_function=embedding,
+            client_settings=client_settings
+        )
+    else:
+        vectorstore = Chroma(
+            collection_name=settings.COLLECTION_NAME,
+            embedding_function=embedding,
+            persist_directory=settings.CHROMA_DB_PATH
+        )
+    # Docstore: Redis si está configurado, de lo contrario memoria
+    redis_host = getattr(settings, "REDIS_HOST", None)
+    redis_port = getattr(settings, "REDIS_PORT", None)
+    redis_db = getattr(settings, "REDIS_DB", 0)
+    if redis_host and redis_port is not None:
+        store = RedisDocStore(host=redis_host, port=int(redis_port), db=int(redis_db))
+        logging.info(f"Usando RedisDocStore en {redis_host}:{redis_port}/{redis_db}")
+    else:
+        store = InMemoryStore()
 
     # 4. Instanciar y poblar el ParentDocumentRetriever
     retriever = ParentDocumentRetriever(

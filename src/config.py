@@ -9,6 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Configuración MCP externo
+    MCP_EXTERNAL_HOST: str = "mitre-mcp"
+    MCP_EXTERNAL_PORT: int = 8080
+    MCP_EXTERNAL_PROTOCOL: str = "http"
+    # Configuración de ChromaDB remoto (por defecto usa el servicio docker 'chromadb')
+    CHROMA_DB_HOST: str | None = "chromadb"
+    CHROMA_DB_PORT: int | None = 8000
     """
     Define las variables de configuración de la aplicación.
 
@@ -21,7 +28,7 @@ class Settings(BaseSettings):
 
     # Configuración de OpenAI
     OPENAI_API_KEY: str
-    OPENAI_MODEL_NAME: str = "gpt-4.1-2025-04-14"
+    OPENAI_MODEL_NAME: str = "gpt-4.1-nano"
 
     # Configuración de Ollama (opcional, para futura referencia)
     OLLAMA_BASE_URL: str | None = None
@@ -30,6 +37,11 @@ class Settings(BaseSettings):
     # Configuración del sistema RAG
     CHROMA_DB_PATH: str = "vector_db"
     COLLECTION_NAME: str = "dbir_2025"
+
+    # Redis Docstore (opcional)
+    REDIS_HOST: str | None = None
+    REDIS_PORT: int | None = None
+    REDIS_DB: int = 0
 
     # Cargar desde el archivo .env en la raíz del proyecto
     model_config = SettingsConfigDict(

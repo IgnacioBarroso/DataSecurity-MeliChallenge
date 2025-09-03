@@ -27,6 +27,3 @@ data/output/*
 !data/output/.gitkeep
 !data/examples/
 vector_db/
-
-# No guardar vectores ni colecciones locales
-vector_db/

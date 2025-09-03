@@ -15,7 +15,7 @@ Realizar un sistema multiagente que posea las características mencionadas a con
 **Sistema:** La solución debe ser una arquitectura multiagente compuesta por 3 agentes específicos que implementen un pipeline secuencial de análisis de vectores de ataque/riesgos, comparativa con el contexto del ecosistema a evaluar, y generación de un reporte de detectores prioritarios.
 
 Este sistema debe tomar como dato el informe "Data Breach Investigations Report 2025" el cual será la base para comparar e identificar necesidades de implementación.
-Reporte: /data/input/2025-dbir-data-breach-investigations-report.pdf.
+El reporte se encuentra en la ruta: /data/input/2025-dbir-data-breach-investigations-report.pdf.
 
 **Tareas del flujo de agentes:**
 
@@ -44,6 +44,7 @@ Reporte: /data/input/2025-dbir-data-breach-investigations-report.pdf.
   * Al menos 1 MCP es requerido, se permite utilizar MCP desarrollados por la comunidad:  
     * Ej: https://github.com/search?q=mitre-attack-mcp\&type=repositories.
     * Investigar este proyecto: https://github.com/stoyky/mitre-attack-mcp.
+    * Esta descargado en el directorio raiz del proyecto: mitre-attack-mcp
 
 **Entregables**
 
