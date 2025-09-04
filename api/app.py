@@ -9,6 +9,9 @@ import socket
 import urllib.request
 import json as _json
 from src.config import settings
+from fastapi.responses import ORJSONResponse
+import time
+from src.rag_system.retriever_factory import get_rag_chain
 
 
 def create_app() -> FastAPI:
@@ -16,6 +19,7 @@ def create_app() -> FastAPI:
         title="DataSec AI Agent API",
         description="API para ejecutar el análisis de seguridad con agentes de IA.",
         version="1.1.0",
+        default_response_class=ORJSONResponse,
     )
 
     app.add_middleware(
@@ -117,5 +121,16 @@ def create_app() -> FastAPI:
             if status.get("chroma") == "unknown":
                 status["chroma"] = "fail"
         return status
+
+    # Warmup en modo TURBO
+    if settings.is_turbo:
+        try:
+            t0 = time.perf_counter()
+            chain = get_rag_chain()
+            _ = chain.invoke("warmup")
+            warm_ms = int((time.perf_counter() - t0) * 1000)
+            print(f"[WARMUP] Turbo chain warmed in {warm_ms} ms")
+        except Exception:
+            pass
 
     return app

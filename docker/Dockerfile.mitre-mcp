@@ -25,6 +25,19 @@ WORKDIR /app/mitre-attack-mcp
 RUN pip install --no-cache-dir -U pip wheel setuptools \
     && pip install --no-cache-dir .
 
+# Pre-descargar STIX en build para evitar cold start
+RUN python - <<'PY'
+from mitre_attack_mcp import server as s
+data_dir = '/opt/mitre-stix'
+import os
+os.makedirs(data_dir, exist_ok=True)
+s.download_stix_data(data_dir)
+loaded = s.load_stix_data(data_dir)
+print('Loaded domains:', loaded)
+PY
+
+ENV MCP_DATA_DIR=/opt/mitre-stix
+
 # Wrapper para ejecutar el servidor FastMCP vía SSE en :8080
 WORKDIR /app
 ADD <<'PY' /app/run_mcp_http.py

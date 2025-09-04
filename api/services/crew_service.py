@@ -8,6 +8,8 @@ import json
 
 from src.mcp_crews import SecurityAnalysisCrew, run_mcp_analysis
 from src.logging_config import setup_session_logging as setup_agent_trace_logging
+from src.config import settings
+from src.turbo_pipeline import run_turbo_pipeline
 
 
 from src.models import SecurityReportInput
@@ -24,7 +26,11 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
         user_input_str = user_input.text
     else:
         user_input_str = str(user_input)
-    result = await asyncio.to_thread(run_mcp_analysis, user_input_str, logger)
+    if settings.is_turbo:
+        # Pipeline rápido sin CrewAI
+        result = await asyncio.to_thread(run_turbo_pipeline, user_input_str)
+    else:
+        result = await asyncio.to_thread(run_mcp_analysis, user_input_str, logger)
     # Normalizar a dict si vino como string/TaskOutput serializado
     normalized: dict | None = None
     if isinstance(result, dict):
@@ -45,9 +51,11 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
                     normalized = obj
         except Exception:
             normalized = None
+            
     # Loggear el resultado crudo para depuración
     print("\n[DEBUG] Raw pipeline result:")
     print(json.dumps(normalized, ensure_ascii=False, indent=2) if isinstance(normalized, dict) else str(result))
+    
     # Validate expected fields for FinalReport
     expected_fields = ["application_name", "summary", "prioritized_detectors"]
     target = normalized if normalized is not None else (result if isinstance(result, dict) else None)
@@ -56,6 +64,7 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
         if missing:
             print(f"[WARNING] FinalReport is missing fields: {missing}")
         return {"report_json": json.dumps(target, ensure_ascii=False, indent=2), "session_id": session_id, "missing_fields": missing}
+    
     # Si no es un dict, retornar advertencia
     return {"report_json": "{}", "session_id": session_id, "missing_fields": expected_fields}
 
