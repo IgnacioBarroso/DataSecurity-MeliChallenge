@@ -1,3 +1,17 @@
+from crewai.tools import tool
+from typing import Any
+from attackcti import attack_client
+from src.logging_config import logging
+import json
+from src.trace import get_trace_logger
+
+
+# Logger específico para la herramienta
+logger = logging.getLogger(__name__)
+
+# Inicializa el cliente para la API de MITRE ATT&CK.
+_attack = None
+
 def normalize_query(query):
     # Recursively extract 'description' if present, until a string or None
     seen = set()
@@ -11,16 +25,6 @@ def normalize_query(query):
     if not isinstance(query, str):
         query = str(query)
     return query
- 
-from crewai.tools import tool
-from typing import Any
-from attackcti import attack_client
-from src.logging_config import logging
-import json
-from src.trace import get_trace_logger
-
-# Inicializa el cliente para la API de MITRE ATT&CK.
-_attack = None
 
 
 def get_attack_client():
@@ -28,10 +32,6 @@ def get_attack_client():
     if _attack is None:
         _attack = attack_client()
     return _attack
-
-
-# Logger específico para la herramienta
-logger = logging.getLogger(__name__)
 
 
 def _generate_keywords(query: str) -> list:

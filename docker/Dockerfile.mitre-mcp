@@ -5,7 +5,8 @@
 # - Ejecuta el servidor por módulo
 #######################################################################
 
-FROM python:3.11-slim
+# Upstream 'mitre-attack-mcp' now requires Python >= 3.13
+FROM python:3.13-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -24,6 +25,32 @@ WORKDIR /app/mitre-attack-mcp
 RUN pip install --no-cache-dir -U pip wheel setuptools \
     && pip install --no-cache-dir .
 
+# Wrapper para ejecutar el servidor FastMCP vía SSE en :8080
+WORKDIR /app
+ADD <<'PY' /app/run_mcp_http.py
+import os
+from mitre_attack_mcp import server as srv
+
+def ensure_data():
+    data_dir = os.environ.get('MCP_DATA_DIR') or srv.get_default_data_dir()
+    # ¿Existen los tres JSONs descargados?
+    exists = all(
+        os.path.exists(os.path.join(data_dir, 'v' + srv.release_info.LATEST_VERSION, f'{d}-attack.json'))
+        for d in ['enterprise','mobile','ics']
+    )
+    if not exists:
+        srv.download_stix_data(data_dir)
+    loaded = srv.load_stix_data(data_dir)
+    if not loaded:
+        raise SystemExit(1)
+    return data_dir
+
+if __name__ == '__main__':
+    ensure_data()
+    # Exponer por SSE/HTTP en 0.0.0.0:8080 para mcpadapt
+    srv.mcp.run(transport='sse', host='0.0.0.0', port=8080)
+PY
+
 EXPOSE 8080
 
-CMD ["python", "-m", "mitre_attack_mcp.server"]
+CMD ["python", "/app/run_mcp_http.py"]

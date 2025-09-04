@@ -58,33 +58,61 @@ def create_app() -> FastAPI:
                 status["mcp_dns"] = "ok"
         except Exception:
             status["mcp_dns"] = "fail"
-        # Chroma REST basic check
+        # Chroma REST basic check (v2 primero; fallback a v1 si no está disponible)
+        def _try_check(api_base: str) -> tuple[str, str, str]:
+            chroma_state = "unknown"; collection_state = "unknown"; count_state = "unknown"
+            try:
+                with urllib.request.urlopen(f"{api_base}/heartbeat", timeout=2) as r:
+                    if r.status == 200:
+                        chroma_state = "ok"
+                with urllib.request.urlopen(f"{api_base}/collections", timeout=3) as r:
+                    raw = r.read().decode("utf-8")
+                    try:
+                        data = _json.loads(raw)
+                    except Exception:
+                        data = {"raw": raw}
+                    # Normalizar lista de colecciones
+                    cols = []
+                    if isinstance(data, dict) and "collections" in data:
+                        cols = data.get("collections") or []
+                    elif isinstance(data, list):
+                        cols = data
+                    # Buscar por nombre de colección
+                    found = None
+                    for c in cols:
+                        if isinstance(c, dict) and c.get("name") == settings.COLLECTION_NAME:
+                            found = c; break
+                        if isinstance(c, str) and c == settings.COLLECTION_NAME:
+                            found = {"id": c, "name": c}; break
+                    if found:
+                        collection_state = "present"
+                        col_id = found.get("id") if isinstance(found, dict) else None
+                        # Intentar contar ítems si existe endpoint
+                        try:
+                            if col_id:
+                                with urllib.request.urlopen(f"{api_base}/collections/{col_id}/count", timeout=3) as rc:
+                                    cdata = _json.loads(rc.read().decode("utf-8"))
+                                    count = cdata.get("count")
+                                    count_state = count if count is not None else "unknown"
+                        except Exception:
+                            count_state = "unknown"
+                    else:
+                        collection_state = "missing"
+            except Exception:
+                if chroma_state == "unknown":
+                    chroma_state = "fail"
+            return chroma_state, collection_state, count_state
+
         try:
             if settings.CHROMA_DB_HOST and settings.CHROMA_DB_PORT:
-                base = f"http://{settings.CHROMA_DB_HOST}:{settings.CHROMA_DB_PORT}/api/v1"
-                with urllib.request.urlopen(f"{base}/heartbeat", timeout=2) as r:
-                    if r.status == 200:
-                        status["chroma"] = "ok"
-                # Check collection
-                with urllib.request.urlopen(f"{base}/collections", timeout=3) as r:
-                    data = _json.loads(r.read().decode("utf-8"))
-                    cols = data.get("collections", [])
-                    found = next((c for c in cols if c.get("name") == settings.COLLECTION_NAME), None)
-                    if found:
-                        status["chroma_collection"] = "present"
-                        col_id = found.get("id")
-                        # Intentar contar ítems (si endpoint disponible)
-                        try:
-                            with urllib.request.urlopen(f"{base}/collections/{col_id}/count", timeout=3) as rc:
-                                cdata = _json.loads(rc.read().decode("utf-8"))
-                                # Algunos retornan {"count": N}
-                                count = cdata.get("count")
-                                status["chroma_count"] = count if count is not None else "unknown"
-                        except Exception:
-                            # Fallback: intenta /get con limit 0 para obtener metadatos (puede no estar soportado)
-                            status["chroma_count"] = "unknown"
-                    else:
-                        status["chroma_collection"] = "missing"
+                base_v2 = f"http://{settings.CHROMA_DB_HOST}:{settings.CHROMA_DB_PORT}/api/v2"
+                chroma_state, coll_state, cnt_state = _try_check(base_v2)
+                if chroma_state == "fail":
+                    base_v1 = f"http://{settings.CHROMA_DB_HOST}:{settings.CHROMA_DB_PORT}/api/v1"
+                    chroma_state, coll_state, cnt_state = _try_check(base_v1)
+                status["chroma"] = chroma_state
+                status["chroma_collection"] = coll_state
+                status["chroma_count"] = cnt_state
         except Exception:
             if status.get("chroma") == "unknown":
                 status["chroma"] = "fail"

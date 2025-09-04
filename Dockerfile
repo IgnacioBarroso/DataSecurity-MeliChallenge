@@ -32,8 +32,8 @@ WORKDIR /app
 # Copiar únicamente archivos de dependencias para aprovechar la cache de capas
 COPY pyproject.toml poetry.lock ./
 
-# Instalar dependencias de producción (sin dev ni ansi)
-RUN poetry install --no-interaction --no-ansi --no-dev
+# Instalar dependencias de producción (sin dev) sin instalar el paquete raíz
+RUN poetry install --no-interaction --no-ansi --without dev --no-root
 
 # ---------- Stage 2: Runtime ----------
 FROM python:3.11-slim
@@ -46,7 +46,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # - poppler-utils: para parseo de PDF con unstructured
 # - libmagic1: detección de tipos de archivo
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils libmagic1 \
+    && apt-get install -y --no-install-recommends poppler-utils libmagic1 libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

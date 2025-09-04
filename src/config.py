@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_MODEL_NAME: str = "gpt-4.1-nano"
 
+    # Configuración de Cohere (opcional para re-ranking)
+    COHERE_API_KEY: str | None = None
+
     # Configuración de Ollama (opcional, para futura referencia)
     OLLAMA_BASE_URL: str | None = None
     OLLAMA_MODEL: str | None = None

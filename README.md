@@ -84,7 +84,7 @@ Proyecto para el “DataSec Challenge” de Mercado Libre. Implementa un sistema
 
 ## MCP MITRE ATT&CK
 
-- Servicio `mitre-mcp` clona `https://github.com/stoyky/mitre-attack-mcp` y expone `:8080`
+- Servicio `mitre-mcp` clona `https://github.com/stoyky/mitre-attack-mcp` y expone `:8080` (interno y host) para el servidor FastMCP (HTTP SSE).
 - Herramientas externas se cargan “lazy”; si MCP no está disponible, se usa `attackcti` local
 
 ## Trazabilidad y Logs
@@ -139,4 +139,3 @@ Proyecto para el “DataSec Challenge” de Mercado Libre. Implementa un sistema
 - Reporte final JSON priorizado y accionable
 - Trazabilidad completa por agente/herramienta
 - Dockerización profesional y reproducible (servicios separados, healthchecks, volúmenes persistentes)
-
