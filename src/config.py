@@ -9,6 +9,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Modo del analizador: "heavy" (por defecto) o "turbo"
+    ANALYZER_MODE: str = "heavy"
     # Configuración MCP externo
     MCP_EXTERNAL_HOST: str = "mitre-mcp"
     MCP_EXTERNAL_PORT: int = 8080
@@ -50,6 +52,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    # Helpers
+    @property
+    def is_turbo(self) -> bool:
+        return (self.ANALYZER_MODE or "").lower().strip() == "turbo"
 
 
 # Crear una única instancia de la configuración para ser importada en otros módulos

@@ -21,6 +21,10 @@ from langchain.retrievers import ParentDocumentRetriever
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.rag_system.redis_docstore import RedisDocStore
 
+# Caches globales para modo TURBO
+_CACHED_ADVANCED_RETRIEVER = None
+_CACHED_RAG_CHAIN = None
+
 def _build_vectorstore(chroma_path, collection_name, embedding_fn):
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
     chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
@@ -49,6 +53,9 @@ def _build_vectorstore(chroma_path, collection_name, embedding_fn):
 
 
 def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohere_api_key):
+    global _CACHED_ADVANCED_RETRIEVER
+    if settings.is_turbo and _CACHED_ADVANCED_RETRIEVER is not None:
+        return _CACHED_ADVANCED_RETRIEVER
     # 1. Vectorstore
     embedding_fn = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
     vectorstore = _build_vectorstore(chroma_path, collection_name, embedding_fn)
@@ -69,35 +76,49 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
         )
         logging.info("Usando ParentDocumentRetriever con RedisDocStore para las consultas.")
     else:
-        base_retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
+        # 'k' por defecto en modo heavy es 20; en turbo se reduce a la mitad
+        k = 10 if settings.is_turbo else 20
+        base_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
         logging.info("Usando retriever de vectorstore simple (sin docstore persistente).")
 
-    # 3. MultiQueryRetriever para expansión de consultas
-    llm = ChatOpenAI(model="gpt-4.1-nano", temperature=0, api_key=openai_api_key)
-    multi_query_retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
+    # 3. MultiQueryRetriever para expansión de consultas (deshabilitado en TURBO)
+    if settings.is_turbo:
+        advanced_retriever = base_retriever
+    else:
+        llm = ChatOpenAI(model="gpt-4.1-nano", temperature=0, api_key=openai_api_key)
+        advanced_retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
 
-    # 4. ContextualCompressionRetriever con CohereRerank (opcional)
-    if cohere_api_key and CohereRerank:
+    # 4. ContextualCompressionRetriever con CohereRerank (opcional; deshabilitado en TURBO)
+    if not settings.is_turbo and cohere_api_key and CohereRerank:
         compressor = CohereRerank(
             cohere_api_key=cohere_api_key,
             model="rerank-english-v3.0",
             top_n=5,
         )
-        return ContextualCompressionRetriever(
-            base_compressor=compressor, base_retriever=multi_query_retriever
+        ret = ContextualCompressionRetriever(
+            base_compressor=compressor, base_retriever=advanced_retriever
         )
     else:
-        logging.warning(
-            "Cohere API Key no configurada o paquete no disponible. Usando MultiQueryRetriever sin compresión contextual."
-        )
-        return multi_query_retriever
+        if not settings.is_turbo:
+            logging.warning(
+                "Cohere API Key no configurada o paquete no disponible. Usando retriever sin compresión contextual."
+            )
+        ret = advanced_retriever
+
+    if settings.is_turbo:
+        _CACHED_ADVANCED_RETRIEVER = ret
+    return ret
 
 def get_rag_chain():
+    global _CACHED_RAG_CHAIN
+    if settings.is_turbo and _CACHED_RAG_CHAIN is not None:
+        return _CACHED_RAG_CHAIN
+
     advanced_retriever = create_advanced_retriever(
         chroma_path=settings.CHROMA_DB_PATH,
         collection_name=settings.COLLECTION_NAME,
         openai_api_key=settings.OPENAI_API_KEY,
-        cohere_api_key=getattr(settings, "COHERE_API_KEY", None)
+        cohere_api_key=(None if settings.is_turbo else getattr(settings, "COHERE_API_KEY", None))
     )
 
     template = """
@@ -112,7 +133,13 @@ def get_rag_chain():
     Answer:
     """
     prompt = ChatPromptTemplate.from_template(template)
-    llm = ChatOpenAI(model="gpt-4.1-nano", temperature=0.1, api_key=settings.OPENAI_API_KEY)
+    # Reducir max_tokens en modo TURBO para respuestas más breves
+    llm = ChatOpenAI(
+        model="gpt-4.1-nano",
+        temperature=0.1,
+        api_key=settings.OPENAI_API_KEY,
+        max_tokens=256 if settings.is_turbo else None,
+    )
 
     def cosine(a, b):
         dot = sum(x*y for x, y in zip(a, b))
@@ -165,10 +192,11 @@ def get_rag_chain():
                 docs = advanced_retriever.get_relevant_documents(question)
         except Exception:
             docs = []
-        # Si no hay Cohere (no compresor), aplicar MMR semántico
-        use_cohere = bool(getattr(settings, "COHERE_API_KEY", None)) and CohereRerank is not None
-        if not use_cohere and docs:
-            docs = mmr_rerank(question, docs, top_n=5)
+        # Sin MMR en TURBO; en heavy mantenemos MMR si no hay Cohere
+        if not settings.is_turbo and docs:
+            use_cohere = bool(getattr(settings, "COHERE_API_KEY", None)) and CohereRerank is not None
+            if not use_cohere:
+                docs = mmr_rerank(question, docs, top_n=5)
         # Construir el contexto como texto concatenado
         texts = []
         for d in docs[:5]:
@@ -182,4 +210,6 @@ def get_rag_chain():
         | llm
         | StrOutputParser()
     )
+    if settings.is_turbo:
+        _CACHED_RAG_CHAIN = rag_chain
     return rag_chain

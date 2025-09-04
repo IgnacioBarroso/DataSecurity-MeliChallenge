@@ -8,8 +8,6 @@ from src.trace import get_trace_logger
 # Inicializa logger específico para la herramienta
 logger = logging.getLogger(__name__)
 
-_cross_encoder = None  # Deprecated: not used currently
-
 
 def _dbir_rag_tool(query: Any) -> str:
     """

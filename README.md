@@ -47,6 +47,9 @@ Proyecto para el “DataSec Challenge” de Mercado Libre. Implementa un sistema
 - `REDIS_HOST`/`REDIS_PORT`/`REDIS_DB`: por defecto `redis:6379` (habilita docstore persistente)
 - `LLM_PROVIDER`: `openai` (por defecto) o `ollama` (local)
   - Para Ollama: `OLLAMA_BASE_URL` y `OLLAMA_MODEL` (p.ej., `llama3`). Servicio opcional en compose.
+ - `ANALYZER_MODE`: `heavy` (por defecto) o `turbo`.
+   - `heavy`: configuración completa (MultiQuery, Cohere opcional, MMR si no hay Cohere, trazas detalladas)
+   - `turbo`: cache global del RAG/LLM, sin Cohere ni MMR, sin MultiQuery, k reducido, `max_tokens` de salida menor, logs en WARNING y solo herramientas de MCP externo para MITRE
 
 ## API Endpoints
 

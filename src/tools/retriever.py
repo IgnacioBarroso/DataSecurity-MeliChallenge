@@ -4,6 +4,7 @@ from langchain_openai import OpenAIEmbeddings
 from src.config import settings
 from src.rag_system.retriever_factory import CohereRerank  # may be None
 from src.rag_system.retriever_factory import create_advanced_retriever, get_rag_chain
+from src.config import settings
 
 
 
@@ -43,35 +44,36 @@ async def ask_rag(question: str) -> dict:
         # Recuperar docs con compatibilidad moderna
         docs = _get_docs(retriever, question)
 
-        # Rerank MMR si no se usa Cohere
-        use_cohere = bool(getattr(settings, "COHERE_API_KEY", None)) and CohereRerank is not None
-        if not use_cohere and docs:
-            emb = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
-            def cosine(a, b):
-                dot = sum(x*y for x, y in zip(a, b))
-                na = math.sqrt(sum(x*x for x in a))
-                nb = math.sqrt(sum(y*y for y in b))
-                return dot / (na * nb + 1e-10)
-            q = emb.embed_query(question)
-            docs = list(docs)[:20]
-            D = [emb.embed_query(getattr(d, 'page_content', str(d))[:2000]) for d in docs]
-            sims_q = [cosine(q, d) for d in D]
-            selected_idx = []
-            first = max(range(len(docs)), key=lambda i: sims_q[i])
-            selected_idx.append(first)
-            while len(selected_idx) < min(5, len(docs)):
-                best_i = None; best_score = -1e9
-                for i in range(len(docs)):
-                    if i in selected_idx:
-                        continue
-                    max_sim_to_S = max(cosine(D[i], D[j]) for j in selected_idx) if selected_idx else 0.0
-                    score = 0.5 * sims_q[i] - 0.5 * max_sim_to_S
-                    if score > best_score:
-                        best_score = score; best_i = i
-                if best_i is None:
-                    break
-                selected_idx.append(best_i)
-            docs = [docs[i] for i in selected_idx]
+        # Turbo: sin Cohere y sin MMR; Heavy: MMR si no hay Cohere
+        if not settings.is_turbo and docs:
+            use_cohere = bool(getattr(settings, "COHERE_API_KEY", None)) and CohereRerank is not None
+            if not use_cohere:
+                emb = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
+                def cosine(a, b):
+                    dot = sum(x*y for x, y in zip(a, b))
+                    na = math.sqrt(sum(x*x for x in a))
+                    nb = math.sqrt(sum(y*y for y in b))
+                    return dot / (na * nb + 1e-10)
+                q = emb.embed_query(question)
+                docs = list(docs)[:20]
+                D = [emb.embed_query(getattr(d, 'page_content', str(d))[:2000]) for d in docs]
+                sims_q = [cosine(q, d) for d in D]
+                selected_idx = []
+                first = max(range(len(docs)), key=lambda i: sims_q[i])
+                selected_idx.append(first)
+                while len(selected_idx) < min(5, len(docs)):
+                    best_i = None; best_score = -1e9
+                    for i in range(len(docs)):
+                        if i in selected_idx:
+                            continue
+                        max_sim_to_S = max(cosine(D[i], D[j]) for j in selected_idx) if selected_idx else 0.0
+                        score = 0.5 * sims_q[i] - 0.5 * max_sim_to_S
+                        if score > best_score:
+                            best_score = score; best_i = i
+                    if best_i is None:
+                        break
+                    selected_idx.append(best_i)
+                docs = [docs[i] for i in selected_idx]
 
         context = "\n---\n".join(getattr(d, 'page_content', str(d)) for d in docs[:5])
         chain = get_rag_chain()

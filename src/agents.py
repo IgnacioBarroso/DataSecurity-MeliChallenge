@@ -3,6 +3,7 @@ from crewai import Agent
 from src.tools.dbir_rag_tool import dbir_rag_tool
 from src.tools.mitre_tool import mitre_attack_query_tool, get_mitre_technique_details
 from src.tools.mcp_external import get_external_tools
+from src.config import settings
 from src.llm_provider import get_llm
 
 llm = get_llm()
@@ -42,7 +43,7 @@ Observation: [tool output here]
         tools=[dbir_rag_tool],
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=True,
+        verbose=not settings.is_turbo,
         system_template=system_template,
     )
 
@@ -75,14 +76,16 @@ Action: MITRE ATT&CK Technique Query Tool
 Action Input: {"query": "Credential Stuffing"}
 Observation: [tool output here]
 """
+    # En modo TURBO, usar solo herramientas del MCP externo; en heavy, usar herramientas locales + MCP
+    tools = list(get_external_tools()) if settings.is_turbo else [mitre_attack_query_tool, get_mitre_technique_details] + list(get_external_tools())
     return Agent(
         role="Risk Classifier Agent",
         goal="Enrich the analyzer's findings using the MITRE ATT&CK tool and the external MCP to map risks to TTPs.",
         backstory="Expert in MITRE ATT&CK and risk classification, with access to the MitreAttackTool and external MCP tools.",
-        tools=[mitre_attack_query_tool, get_mitre_technique_details] + list(get_external_tools()),
+        tools=tools,
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=True,
+        verbose=not settings.is_turbo,
         system_template=system_template,
     )
 
@@ -109,6 +112,6 @@ IMPORTANT: If you do not follow the JSON structure or invent information, your a
         backstory="Responsible for synthesizing the analysis into a clear and useful JSON report for security teams.",
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=True,
+        verbose=not settings.is_turbo,
         system_template=system_template,
     )

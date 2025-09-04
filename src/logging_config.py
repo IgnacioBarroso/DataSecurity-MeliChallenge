@@ -2,6 +2,7 @@ import logging
 import sys
 from pathlib import Path
 import json
+from src.config import settings
 
 LOGS_DIR = Path("logs")
 LOGS_DIR.mkdir(exist_ok=True)
@@ -41,8 +42,9 @@ def setup_session_logging(session_id: str):
         logger.removeHandler(handler)
 
     # Configuración básica
+    level = logging.WARNING if settings.is_turbo else logging.INFO
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format="%(asctime)s - [%(levelname)s] - (%(module)s:%(funcName)s) - %(message)s",
         handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
     )
@@ -55,6 +57,9 @@ def setup_agent_trace_logging(session_id: str):
     """
     Configura un logger específico para trazas de agentes en formato JSON.
     """
+    # En modo turbo, no generamos trazas pesadas por defecto
+    if settings.is_turbo:
+        return None
     trace_log_file = LOGS_DIR / f"session_{session_id}_trace.json"
 
     trace_logger = logging.getLogger(f"agent_trace_{session_id}")
