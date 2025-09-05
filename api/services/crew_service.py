@@ -126,6 +126,13 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
         else:
             # Heavy: dedupe steps y normalizar severidades sin cambiar la longitud
             target = _normalize_heavy_report(target)
+        # Adjuntar timing dentro del propio reporte para que el frontend lo vea al parsear report_json
+        try:
+            # Usar clave sin guion bajo para consistencia con envelope
+            target.pop("_timing_ms", None)
+            target["timing_ms"] = elapsed_ms
+        except Exception:
+            pass
         missing = [f for f in expected_fields if f not in target or not target.get(f)]
         if missing:
             print(f"[WARNING] FinalReport is missing fields: {missing}")

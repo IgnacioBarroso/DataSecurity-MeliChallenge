@@ -80,9 +80,47 @@ def _normalize_report(data: Dict[str, Any]) -> Dict[str, Any]:
             steps = det.get("actionable_steps") or []
             if not isinstance(steps, list):
                 steps = [str(steps)] if steps else []
-            steps = [str(s) for s in steps][:3]
-            while len(steps) < 3:
-                steps.append("Add monitoring and alerting.")
+            # Deduplicar pasos (por similitud si está disponible)
+            try:
+                from rapidfuzz import fuzz  # type: ignore
+                deduped: list[str] = []
+                for s in [str(s).strip() for s in steps if str(s).strip()]:
+                    if not deduped:
+                        deduped.append(s)
+                        continue
+                    if max((fuzz.ratio(s.lower(), t.lower()) for t in deduped), default=0) < 90:
+                        deduped.append(s)
+                steps = deduped
+            except Exception:
+                seen = set()
+                deduped = []
+                for s in [str(s).strip().lower() for s in steps if str(s).strip()]:
+                    if s not in seen:
+                        seen.add(s); deduped.append(s)
+                steps = deduped
+            # Completar hasta 3 con un pool variado, evitando duplicados semánticos
+            fallback_pool = [
+                "Enable multi-factor authentication.",
+                "Define alert thresholds and automate notifications.",
+                "Instrument tamper-evident logging.",
+                "Enforce least privilege on roles.",
+                "Schedule periodic access reviews.",
+                "Deploy anomaly detection on APIs.",
+                "Encrypt sensitive data at rest and in transit.",
+            ]
+            for fb in fallback_pool:
+                if len(steps) >= 3:
+                    break
+                try:
+                    from rapidfuzz import fuzz as _f  # type: ignore
+                    if max((_f.ratio(fb.lower(), t.lower()) for t in steps), default=0) >= 90:
+                        continue
+                except Exception:
+                    if fb.lower() in [x.lower() for x in steps]:
+                        continue
+                steps.append(fb)
+            # Cortar a 3
+            steps = steps[:3]
             sev = (det.get("severity") or "Medium").title()
             if sev not in ("High", "Medium", "Low"):
                 sev = "High" if sev.lower() == "critical" else "Medium"
@@ -183,8 +221,10 @@ def run_turbo_pipeline(user_input: str) -> Dict[str, Any]:
             "_note": "Model returned non-JSON, fallback skeleton",
         }
 
-    # Adjuntar métrica simple
-    data.setdefault("_timing_ms", int(dt))
+    # Adjuntar métrica simple y limpiar claves extra
+    data.pop("_timing_ms", None)
+    data.pop("_note", None)
+    data["timing_ms"] = int(dt)
     # Normalizar y asegurar 5 detectores con severidades H/M/L
     data = _normalize_report(data)
 

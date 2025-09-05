@@ -20,10 +20,18 @@ from src.config import settings
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.rag_system.redis_docstore import RedisDocStore
+from langchain.cache import InMemoryCache
+from langchain.globals import set_llm_cache
 
-# Caches globales para modo TURBO
-_CACHED_ADVANCED_RETRIEVER = None
-_CACHED_RAG_CHAIN = None
+# Habilitar cache in-memory para LLM (aplica a heavy y turbo) para evitar repeticiones
+try:
+    set_llm_cache(InMemoryCache())
+except Exception:
+    pass
+
+# Caches globales (por modo)
+_CACHED_ADVANCED_RETRIEVER: dict[str, any] = {}
+_CACHED_RAG_CHAIN: dict[str, any] = {}
 
 def _build_vectorstore(chroma_path, collection_name, embedding_fn):
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
@@ -52,10 +60,17 @@ def _build_vectorstore(chroma_path, collection_name, embedding_fn):
     )
 
 
+def _make_base_retriever(vectorstore):
+    """Devuelve retriever base con k acorde al modo."""
+    k = 10 if settings.is_turbo else 20
+    return vectorstore.as_retriever(search_kwargs={"k": k})
+
+
 def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohere_api_key):
-    global _CACHED_ADVANCED_RETRIEVER
-    if settings.is_turbo and _CACHED_ADVANCED_RETRIEVER is not None:
-        return _CACHED_ADVANCED_RETRIEVER
+    mode_key = 'turbo' if settings.is_turbo else 'heavy'
+    cached = _CACHED_ADVANCED_RETRIEVER.get(mode_key)
+    if cached is not None:
+        return cached
     # 1. Vectorstore
     embedding_fn = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
     vectorstore = _build_vectorstore(chroma_path, collection_name, embedding_fn)
@@ -76,9 +91,7 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
         )
         logging.info("Usando ParentDocumentRetriever con RedisDocStore para las consultas.")
     else:
-        # 'k' por defecto en modo heavy es 20; en turbo se reduce a la mitad
-        k = 10 if settings.is_turbo else 20
-        base_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+        base_retriever = _make_base_retriever(vectorstore)
         logging.info("Usando retriever de vectorstore simple (sin docstore persistente).")
 
     # 3. MultiQueryRetriever para expansión de consultas (deshabilitado en TURBO)
@@ -90,11 +103,28 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
 
     # 4. ContextualCompressionRetriever con CohereRerank (opcional; deshabilitado en TURBO)
     if not settings.is_turbo and cohere_api_key and CohereRerank:
-        compressor = CohereRerank(
+        # Wrapper simple con cache para Cohere rerank
+        class CachedCompressor:
+            def __init__(self, inner):
+                self.inner = inner
+                self._cache = {}
+            def compress_documents(self, docs, query):
+                try:
+                    ids = tuple(getattr(d, 'metadata', {}).get('id') or hash(getattr(d, 'page_content','')) for d in docs)
+                    key = (query, ids)
+                    if key in self._cache:
+                        return self._cache[key]
+                except Exception:
+                    key = None
+                out = self.inner.compress_documents(docs, query)
+                if key is not None:
+                    self._cache[key] = out
+                return out
+        compressor = CachedCompressor(CohereRerank(
             cohere_api_key=cohere_api_key,
             model="rerank-english-v3.0",
             top_n=5,
-        )
+        ))
         ret = ContextualCompressionRetriever(
             base_compressor=compressor, base_retriever=advanced_retriever
         )
@@ -104,15 +134,14 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
                 "Cohere API Key no configurada o paquete no disponible. Usando retriever sin compresión contextual."
             )
         ret = advanced_retriever
-
-    if settings.is_turbo:
-        _CACHED_ADVANCED_RETRIEVER = ret
+    _CACHED_ADVANCED_RETRIEVER[mode_key] = ret
     return ret
 
 def get_rag_chain():
-    global _CACHED_RAG_CHAIN
-    if settings.is_turbo and _CACHED_RAG_CHAIN is not None:
-        return _CACHED_RAG_CHAIN
+    mode_key = 'turbo' if settings.is_turbo else 'heavy'
+    cached = _CACHED_RAG_CHAIN.get(mode_key)
+    if cached is not None:
+        return cached
 
     advanced_retriever = create_advanced_retriever(
         chroma_path=settings.CHROMA_DB_PATH,
@@ -184,12 +213,30 @@ def get_rag_chain():
                 return docs
 
     def build_context(question: str):
-        # Obtener documentos desde el retriever avanzado
+        # Early-exit: si top1 muy alto, evitar fan-out pesado en heavy
+        docs = []
         try:
-            if hasattr(advanced_retriever, "invoke"):
-                docs = advanced_retriever.invoke(question)
-            else:
-                docs = advanced_retriever.get_relevant_documents(question)
+            if not settings.is_turbo:
+                # base retriever top1
+                emb = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
+                qv = emb.embed_query(question)
+                vectorstore = _build_vectorstore(settings.CHROMA_DB_PATH, settings.COLLECTION_NAME, emb)
+                base = _make_base_retriever(vectorstore)
+                top1 = base.get_relevant_documents(question)
+                def cosine(a, b):
+                    import math
+                    dot = sum(x*y for x, y in zip(a, b)); na = math.sqrt(sum(x*x for x in a)); nb = math.sqrt(sum(y*y for y in b)); return dot/(na*nb+1e-10)
+                score = None
+                if top1:
+                    dv = emb.embed_query(getattr(top1[0], 'page_content', '')[:2000])
+                    score = cosine(qv, dv)
+                if score is not None and score >= 0.55:
+                    docs = base.get_relevant_documents(question)
+            if not docs:
+                if hasattr(advanced_retriever, "invoke"):
+                    docs = advanced_retriever.invoke(question)
+                else:
+                    docs = advanced_retriever.get_relevant_documents(question)
         except Exception:
             docs = []
         # Sin MMR en TURBO; en heavy mantenemos MMR si no hay Cohere
@@ -210,6 +257,5 @@ def get_rag_chain():
         | llm
         | StrOutputParser()
     )
-    if settings.is_turbo:
-        _CACHED_RAG_CHAIN = rag_chain
+    _CACHED_RAG_CHAIN[mode_key] = rag_chain
     return rag_chain

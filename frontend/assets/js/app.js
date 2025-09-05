@@ -109,6 +109,15 @@ Controles actuales:
 
       const result = await response.json();
       const parsedReport = JSON.parse(result.report_json);
+      // Merge timing_ms from envelope if present
+      try {
+        if (typeof result.timing_ms === 'number') {
+          parsedReport.timing_ms = result.timing_ms;
+        } else if (typeof parsedReport._timing_ms === 'number' && typeof parsedReport.timing_ms !== 'number') {
+          // Backward compatibility
+          parsedReport.timing_ms = parsedReport._timing_ms;
+        }
+      } catch {}
       reportData = parsedReport;
       jsonOutput.textContent = JSON.stringify(parsedReport, null, 2);
       downloadButton.disabled = false;
@@ -145,4 +154,3 @@ Controles actuales:
     a.remove();
   });
 });
-

@@ -48,8 +48,16 @@ Proyecto para el “DataSec Challenge” de Mercado Libre. Implementa un sistema
 - `LLM_PROVIDER`: `openai` (por defecto) o `ollama` (local)
   - Para Ollama: `OLLAMA_BASE_URL` y `OLLAMA_MODEL` (p.ej., `llama3`). Servicio opcional en compose.
 - `ANALYZER_MODE`: `heavy` (por defecto) o `turbo`.
-  - `heavy`: configuración completa (MultiQuery, Cohere opcional, MMR si no hay Cohere, trazas detalladas)
-  - `turbo`: cache global del RAG/LLM, sin Cohere ni MMR, sin MultiQuery, k reducido, `max_tokens` de salida menor, logs en WARNING y solo herramientas de MCP externo para MITRE. Además, el pipeline de análisis usa un camino single‑pass (sin CrewAI) para máxima velocidad, manteniendo el de 3 agentes para `heavy`.
+  - `heavy` (calidad completa):
+    - Arquitectura de 3 agentes (CrewAI) con MultiQueryRetriever y Cohere Rerank (si `COHERE_API_KEY`), MMR si no hay Cohere.
+    - MCP externo como preferido; fallback explícito a herramientas locales (`attackcti`) si MCP no está disponible.
+    - Logging detallado y trazas activas (verbose True).
+    - Estructura de reporte idéntica a `turbo`; `timing_ms` presente dentro del JSON del reporte y en el envelope de la API.
+  - `turbo` (máxima velocidad, misma estructura de salida):
+    - Pipeline single‑pass sin CrewAI; sin MultiQuery ni Cohere; reuso y cache global de RAG/LLM.
+    - MCP externo únicamente (sin fallback local) para minimizar overhead.
+    - k reducido, `max_tokens` acotado y logs en WARNING.
+    - Estructura de reporte idéntica a `heavy`; `timing_ms` presente dentro del JSON del reporte y en el envelope de la API.
 
 ## API Endpoints
 
@@ -91,7 +99,9 @@ Benchmark modos (opcional):
 ## MCP MITRE ATT&CK
 
 - Servicio `mitre-mcp` clona `https://github.com/stoyky/mitre-attack-mcp` y expone `:8080` (interno y host) para el servidor FastMCP (HTTP SSE).
-- Herramientas externas se cargan “lazy”; si MCP no está disponible, se usa `attackcti` local
+- Carga de herramientas (por modo):
+  - `turbo`: usa únicamente herramientas del MCP externo (no hay fallback, para minimizar overhead).
+  - `heavy`: prioriza herramientas del MCP externo; si MCP no está disponible, hace fallback explícito a herramientas locales basadas en `attackcti`.
 
 ## Trazabilidad y Logs
 

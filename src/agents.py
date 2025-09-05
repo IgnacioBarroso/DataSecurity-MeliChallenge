@@ -4,6 +4,7 @@ from src.tools.dbir_rag_tool import dbir_rag_tool
 from src.tools.mitre_tool import mitre_attack_query_tool, get_mitre_technique_details
 from src.tools.mcp_external import get_external_tools
 from src.config import settings
+from src.config import settings
 from src.llm_provider import get_llm
 
 llm = get_llm()
@@ -76,8 +77,14 @@ Action: MITRE ATT&CK Technique Query Tool
 Action Input: {"query": "Credential Stuffing"}
 Observation: [tool output here]
 """
-    # En modo TURBO, usar solo herramientas del MCP externo; en heavy, usar herramientas locales + MCP
-    tools = list(get_external_tools()) if settings.is_turbo else [mitre_attack_query_tool, get_mitre_technique_details] + list(get_external_tools())
+    # Herramientas para clasificación de riesgo (MITRE)
+    if settings.is_turbo:
+        # Turbo: solo MCP externo (evitar overhead); si MCP no responde, sin fallback (mantener definición original de turbo)
+        tools = list(get_external_tools())
+    else:
+        # Heavy: preferir MCP externo; fallback explícito a attackcti local si no hay herramientas MCP
+        ext = list(get_external_tools())
+        tools = ext if ext else [mitre_attack_query_tool, get_mitre_technique_details]
     return Agent(
         role="Risk Classifier Agent",
         goal="Enrich the analyzer's findings using the MITRE ATT&CK tool and the external MCP to map risks to TTPs.",
