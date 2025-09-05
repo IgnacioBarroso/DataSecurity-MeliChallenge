@@ -8,6 +8,7 @@ class AnalysisRequest(BaseModel):
 
 
 class AnalysisResponse(BaseModel):
-    """Modelo para la respuesta: reporte final en JSON y session_id opcional."""
+    """Modelo para la respuesta: reporte final en JSON, session_id y timing en ms."""
     report_json: str
     session_id: str | None = None
+    timing_ms: int | None = None

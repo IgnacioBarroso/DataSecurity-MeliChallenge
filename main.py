@@ -7,6 +7,8 @@ import api.auto_dotenv  # Carga variables de entorno desde .env para CLI
 from src.mcp_crews import SecurityAnalysisCrew
 from src.logging_config import setup_agent_trace_logging
 from src.tools.retriever import ask_rag
+from src.config import settings
+from src.turbo_pipeline import run_turbo_pipeline
 try:
     from pydantic import BaseModel  # type: ignore
 except Exception:
@@ -45,11 +47,18 @@ def main():
             print(f"Error al leer el archivo: {e}")
             sys.exit(1)
 
-        print("Ejecutando SecurityAnalysisCrew...")
+        import time
+        print("Ejecutando SecurityAnalysis...")
         session_id = "cli-" + str(abs(hash(args.input_file)))
         logger = setup_agent_trace_logging(session_id)
-        crew = SecurityAnalysisCrew(agent_trace_logger=logger)
-        report = crew.run(user_input)
+        t0 = time.perf_counter()
+        if settings.is_turbo:
+            out = run_turbo_pipeline(user_input)
+            report = json.dumps(out, ensure_ascii=False, indent=2)
+        else:
+            crew = SecurityAnalysisCrew(agent_trace_logger=logger)
+            report = crew.run(user_input)
+        ms = int((time.perf_counter() - t0) * 1000)
 
         if hasattr(args, "output") and args.output:
             # Normalizar a JSON estricto
@@ -89,6 +98,7 @@ def main():
         else:
             print("\n--- REPORTE DE SEGURIDAD ---\n")
             print(report)
+            print(f"\nTiempo: {ms} ms")
 
 
 if __name__ == "__main__":

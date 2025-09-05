@@ -24,7 +24,8 @@ async def analyze_ecosystem(request: AnalysisRequest):
         # Adaptar el resultado para AnalysisResponse
         return AnalysisResponse(
             report_json=result.get("report_json", "{}"),
-            session_id=result.get("session_id")
+            session_id=result.get("session_id"),
+            timing_ms=result.get("timing_ms"),
         )
     except ValueError as ve:
         logging.error(f"Input inválido: {ve}")
@@ -73,6 +74,7 @@ async def analyze_ecosystem_upload(
         return AnalysisResponse(
             report_json=result.get("report_json", "{}"),
             session_id=result.get("session_id"),
+            timing_ms=result.get("timing_ms"),
         )
     except HTTPException:
         raise
