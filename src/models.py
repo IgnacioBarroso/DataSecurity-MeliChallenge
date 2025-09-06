@@ -1,6 +1,6 @@
 # Modelos Pydantic para el flujo MCP de 3 agentes
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, constr, conlist
+from typing import List, Optional, Literal
 
 # Input estándar para el análisis (restaurado para compatibilidad con tests y servicios)
 class SecurityReportInput(BaseModel):
@@ -50,10 +50,15 @@ class ActionableStep(BaseModel):
     step: str
 
 
+class Detector(BaseModel):
+    detector_name: constr(min_length=8, max_length=120) = Field(description="Nombre conciso del detector; sustantivo/frase técnica, no narrativa.")
+    description: constr(min_length=40, max_length=600) = Field(description="Descripción clara y específica del riesgo que detecta.")
+    actionable_steps: conlist(str, min_length=3, max_length=3) = Field(description="Tres pasos concretos, distintos y accionables.")
+    severity: Literal["High", "Medium", "Low"] = Field(description="Severidad normalizada.")
+
+
 class FinalReport(BaseModel):
     report_id: str = Field(description="ID único de la sesión de análisis.")
     application_name: str = Field(description="Nombre de la aplicación analizada.")
     summary: str = Field(description="Resumen ejecutivo del reporte.")
-    prioritized_detectors: List[dict] = Field(
-        description="Detectores priorizados con detalles, TTPs, riesgos y pasos accionables."
-    )
+    prioritized_detectors: List[Detector] = Field(description="Lista ordenada de detectores priorizados.")

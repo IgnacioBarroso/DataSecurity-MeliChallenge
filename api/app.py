@@ -44,7 +44,7 @@ def create_app() -> FastAPI:
     # Servir el frontend estático en /ui
     app.mount("/ui", StaticFiles(directory="frontend", html=True), name="ui")
 
-    @app.get("/health", summary="Healthcheck", tags=["Status"])
+    @app.get("/health", summary="Healthcheck", tags=["Status"]) 
     def healthcheck():
         status = {
             "api": "ok",
@@ -62,6 +62,32 @@ def create_app() -> FastAPI:
                 status["mcp_dns"] = "ok"
         except Exception:
             status["mcp_dns"] = "fail"
+        # Chroma: primero intentamos vía SDK; si falla, intentamos REST
+        try:
+            if settings.CHROMA_DB_HOST and settings.CHROMA_DB_PORT:
+                try:
+                    import chromadb  # type: ignore
+                    from chromadb.config import Settings as _ChromaCfg  # type: ignore
+                    _cfg = _ChromaCfg(
+                        chroma_api_impl="rest",
+                        chroma_server_host=settings.CHROMA_DB_HOST,
+                        chroma_server_http_port=settings.CHROMA_DB_PORT,
+                    )
+                    _client = chromadb.Client(_cfg)  # type: ignore
+                    _col = _client.get_or_create_collection(settings.COLLECTION_NAME)
+                    try:
+                        _count = _col.count()  # type: ignore
+                    except Exception:
+                        _count = "unknown"
+                    status["chroma"] = "ok"
+                    status["chroma_collection"] = "present"
+                    status["chroma_count"] = _count
+                    return status
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         # Chroma REST basic check (v2 primero; fallback a v1 si no está disponible)
         def _try_check(api_base: str) -> tuple[str, str, str]:
             chroma_state = "unknown"; collection_state = "unknown"; count_state = "unknown"
@@ -117,6 +143,16 @@ def create_app() -> FastAPI:
                 status["chroma"] = chroma_state
                 status["chroma_collection"] = coll_state
                 status["chroma_count"] = cnt_state
+                if coll_state != "present" or cnt_state == "unknown":
+                    # Fallback: intentar leer conteo desde el directorio persistente local
+                    try:
+                        import chromadb  # type: ignore
+                        _pc = chromadb.PersistentClient(path=str(settings.CHROMA_DB_PATH))  # type: ignore
+                        _col = _pc.get_or_create_collection(settings.COLLECTION_NAME)
+                        status["chroma_collection"] = "present"
+                        status["chroma_count"] = _col.count()  # type: ignore
+                    except Exception:
+                        pass
         except Exception:
             if status.get("chroma") == "unknown":
                 status["chroma"] = "fail"

@@ -6,6 +6,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const jsonOutput = document.getElementById('jsonOutput');
   const downloadButton = document.getElementById('downloadButton');
   const inputPanel = document.getElementById('input-panel');
+  // Mode switch UI (render in host if present)
+  const host = document.getElementById('modeSwitchHost');
+  const modeSwitchContainer = document.createElement('div');
+  modeSwitchContainer.className = 'flex items-center justify-center gap-3 mb-2';
+  const modeLabel = document.createElement('span');
+  modeLabel.className = 'text-sm text-gray-300';
+  modeLabel.textContent = 'Modo:';
+  const switchWrap = document.createElement('button');
+  switchWrap.id = 'modeSwitch';
+  switchWrap.className = 'relative inline-flex h-6 w-12 items-center rounded-full bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400';
+  const switchDot = document.createElement('span');
+  switchDot.className = 'inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-200 translate-x-1';
+  const modeText = document.createElement('span');
+  modeText.className = 'text-sm text-gray-200 ml-2';
+  modeText.textContent = 'Turbo';
+  switchWrap.appendChild(switchDot);
+  modeSwitchContainer.appendChild(modeLabel);
+  modeSwitchContainer.appendChild(switchWrap);
+  modeSwitchContainer.appendChild(modeText);
+  if (host) {
+    host.appendChild(modeSwitchContainer);
+  } else {
+    inputPanel.insertBefore(modeSwitchContainer, inputPanel.firstChild);
+  }
+  let currentMode = (localStorage.getItem('analyzer_mode') || 'turbo');
+  function renderSwitch() {
+    const isTurbo = currentMode === 'turbo';
+    switchWrap.classList.toggle('bg-yellow-500', isTurbo);
+    switchWrap.classList.toggle('bg-gray-700', !isTurbo);
+    switchDot.style.transform = isTurbo ? 'translateX(24px)' : 'translateX(4px)';
+    modeText.textContent = isTurbo ? 'Turbo' : 'Heavy';
+  }
+  renderSwitch();
+  switchWrap.addEventListener('click', () => {
+    currentMode = currentMode === 'turbo' ? 'heavy' : 'turbo';
+    localStorage.setItem('analyzer_mode', currentMode);
+    renderSwitch();
+  });
   const loadingOverlay = document.getElementById('loadingOverlay');
   const githubLink = document.getElementById('githubLink');
 
@@ -87,14 +125,16 @@ Controles actuales:
         // Submit file to upload endpoint
         const form = new FormData();
         form.append('file', fileInput.files[0]);
-        response = await fetch('/api/analyze-upload', { method: 'POST', body: form });
+        const qsU = `?mode=${encodeURIComponent(currentMode)}`;
+        response = await fetch('/api/analyze-upload' + qsU, { method: 'POST', body: form });
       } else {
         if (!userInput) {
           alert('El campo de texto no puede estar vacío.');
           setLoading(false);
           return;
         }
-        response = await fetch('/api/analyze', {
+        const qs = `?mode=${encodeURIComponent(currentMode)}`;
+        response = await fetch('/api/analyze' + qs, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_input: userInput })

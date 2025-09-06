@@ -11,7 +11,9 @@ llm = get_llm()
 
 
 # 1. Agente Analizador (ThreatAnalyzerAgent)
-def threat_analyzer_agent(llm_override=None):
+def threat_analyzer_agent(llm_override=None, turbo: bool | None = None):
+    if turbo is None:
+        turbo = settings.is_turbo
     system_template = """
 You are the Threat Analyzer Agent, a senior cybersecurity analyst for the Meli Challenge 2025.
 Your mission is to analyze the user's application description, identify weaknesses, and—using the DBIR Report RAG Tool—find up to 5 relevant threats from the Verizon DBIR 2025 report.
@@ -44,13 +46,15 @@ Observation: [tool output here]
         tools=[dbir_rag_tool],
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=not settings.is_turbo,
+        verbose=not turbo,
         system_template=system_template,
     )
 
 
 # 2. Agente Clasificador (RiskClassifierAgent)
-def risk_classifier_agent(llm_override=None):
+def risk_classifier_agent(llm_override=None, turbo: bool | None = None):
+    if turbo is None:
+        turbo = settings.is_turbo
     system_template = """
 You are the Risk Classifier Agent, an expert in MITRE ATT&CK and risk management for the Meli Challenge 2025.
 Your task is to take the findings from the analyzer and enrich them using the MITRE ATT&CK tools, mapping each threat to relevant TTPs (Tactics, Techniques, and Procedures).
@@ -78,7 +82,7 @@ Action Input: {"query": "Credential Stuffing"}
 Observation: [tool output here]
 """
     # Herramientas para clasificación de riesgo (MITRE)
-    if settings.is_turbo:
+    if turbo:
         # Turbo: solo MCP externo (evitar overhead); si MCP no responde, sin fallback (mantener definición original de turbo)
         tools = list(get_external_tools())
     else:
@@ -92,26 +96,29 @@ Observation: [tool output here]
         tools=tools,
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=not settings.is_turbo,
+        verbose=not turbo,
         system_template=system_template,
     )
 
 
 # 3. Agente de Reporte (ReportingAgent)
-def reporting_agent(llm_override=None):
+def reporting_agent(llm_override=None, turbo: bool | None = None):
+    if turbo is None:
+        turbo = settings.is_turbo
     system_template = """
-You are the Reporting Agent, responsible for synthesizing and presenting the threat and risk analysis in a professional report for high-level security teams.
-Your goal is to generate a final report in valid JSON format, strictly following the FinalReport schema, prioritizing clear technical detectors and actionable steps, fully aligned with the standards of the Meli Challenge 2025.
+You are the Reporting Agent. Synthesize a professional FinalReport in STRICT JSON.
 
-CRITICAL INSTRUCTIONS:
-- The report must be a valid JSON object matching the FinalReport schema: {application_name, summary, prioritized_detectors (list), and any other required fields}.
-- Do NOT output Markdown or any other format—output ONLY valid JSON.
-- If any data is missing, set the value to null or an empty list, but do not invent information.
-- Use professional language, avoid repetition, and ensure every recommendation is concrete and actionable.
+HARD CONSTRAINTS (Pydantic-validated):
+- prioritized_detectors must be a list of exactly 5 Detector objects.
+- Detector.detector_name: concise technical noun phrase (8–120 chars). Do NOT use narrative sentences or generic placeholders. Avoid starting with function words (e.g., "of", "and").
+- Detector.description: specific explanation (40–600 chars), not equal to the name, derived from prior analysis and DBIR context.
+- Detector.actionable_steps: exactly 3 concrete, distinct actions.
+- Detector.severity: one of ["High", "Medium", "Low"].
 
-NEVER make up information or findings. The report must be faithful to the previous analysis.
-
-IMPORTANT: If you do not follow the JSON structure or invent information, your answer will be rejected.
+OUTPUT RULES:
+- Output ONLY valid JSON conforming to FinalReport schema. No markdown. No commentary.
+- If you cannot produce a high-quality detector, omit it and reprioritize so you still deliver 5 solid detectors.
+- Do not fabricate facts; base content on prior tasks’ outputs and tools.
 """
     return Agent(
         role="Reporting Agent",
@@ -119,6 +126,6 @@ IMPORTANT: If you do not follow the JSON structure or invent information, your a
         backstory="Responsible for synthesizing the analysis into a clear and useful JSON report for security teams.",
         llm=llm_override or llm,
         allow_delegation=False,
-        verbose=not settings.is_turbo,
+        verbose=not turbo,
         system_template=system_template,
     )

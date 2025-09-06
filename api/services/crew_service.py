@@ -10,7 +10,7 @@ import time
 from src.mcp_crews import SecurityAnalysisCrew, run_mcp_analysis
 from src.logging_config import setup_session_logging as setup_agent_trace_logging
 from src.config import settings
-from src.turbo_pipeline import run_turbo_pipeline, _normalize_report as _normalize_turbo_report
+from src.turbo_pipeline import run_turbo_pipeline
 
 
 def _normalize_heavy_report(data: dict) -> dict:
@@ -60,9 +60,12 @@ def _normalize_heavy_report(data: dict) -> dict:
     return data
 
 
+# Eliminado: síntesis y reparaciones ad-hoc; se resuelve a nivel de prompts y validación
+
+
 from src.models import SecurityReportInput
 
-async def run_analysis_crew(user_input: str | SecurityReportInput):
+async def run_analysis_crew(user_input: str | SecurityReportInput, mode_override: str | None = None):
     """
     Ejecuta la SecurityAnalysisCrew y retorna el reporte final en JSON y session_id.
     Usa internamente run_mcp_analysis y setup_agent_trace_logging para permitir mocking en tests.
@@ -75,10 +78,12 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
     else:
         user_input_str = str(user_input)
     t0 = time.perf_counter()
-    if settings.is_turbo:
+    want_turbo = (mode_override or ("turbo" if settings.is_turbo else "heavy")).lower() == "turbo"
+    if want_turbo:
         # Pipeline rápido sin CrewAI
         result = await asyncio.to_thread(run_turbo_pipeline, user_input_str)
     else:
+        # Llamada al orquestador MCP (firma esperada por tests: (text, logger))
         result = await asyncio.to_thread(run_mcp_analysis, user_input_str, logger)
     elapsed_ms = int((time.perf_counter() - t0) * 1000)
     # Normalizar a dict si vino como string/TaskOutput serializado
@@ -110,21 +115,11 @@ async def run_analysis_crew(user_input: str | SecurityReportInput):
     expected_fields = ["application_name", "summary", "prioritized_detectors"]
     target = normalized if normalized is not None else (result if isinstance(result, dict) else None)
     if isinstance(target, dict):
-        # Limpieza de artefactos turbo legado y normalización en modo turbo
-        if settings.is_turbo:
-            try:
-                if "report_json" in target and isinstance(target["report_json"], str):
-                    target = json.loads(target["report_json"])  # unwrap legacy nested
-            except Exception:
-                pass
-            # Remover banderas auxiliares
-            if isinstance(target, dict):
-                target.pop("cached", None)
-                target.pop("session_id", None)
-                # Normalizar severidades y asegurar 5 detectores
-                target = _normalize_turbo_report(target)
-        else:
-            # Heavy: dedupe steps y normalizar severidades sin cambiar la longitud
+        # Limpieza mínima del resultado segun modo
+        if want_turbo and isinstance(target, dict):
+            target.pop("cached", None)
+            target.pop("session_id", None)
+        if not want_turbo:
             target = _normalize_heavy_report(target)
         # Adjuntar timing dentro del propio reporte para que el frontend lo vea al parsear report_json
         try:

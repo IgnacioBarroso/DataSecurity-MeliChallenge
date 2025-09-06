@@ -6,7 +6,7 @@
     <title>Data Security Meli Challenge</title>
     <meta name="repo-url" content="https://github.com/IgnacioBarroso/DataSecurity-MeliChallenge" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ui/assets/css/styles.css">
+    <link rel="stylesheet" href="/ui/assets/css/styles.css?v=20250905">
 </head>
 <body class="min-h-screen flex flex-col p-4 md:p-8">
 
@@ -19,6 +19,8 @@
         <!-- Left Panel: Input -->
         <div id="input-panel" class="panel p-6">
             <h2 class="text-xl font-bold mb-4 text-center">1. Proporcionar Contexto</h2>
+            <!-- Mode switch host (rendered by app.js) -->
+            <div id="modeSwitchHost" class="flex items-center justify-center gap-3 mb-4"></div>
             <textarea id="inputText" class="main-textarea w-full" placeholder="Escribe o pega el texto aquí, o arrastra un archivo .txt..."></textarea>
             <div class="flex items-center justify-between mt-4 gap-4">
                 <button id="uploadButton" class="btn flex-1">Cargar Archivo</button>
@@ -47,6 +49,6 @@
         </svg>
     </a>
 
-    <script src="/ui/assets/js/app.js"></script>
+    <script src="/ui/assets/js/app.js?v=20250905"></script>
 </body>
 </html>

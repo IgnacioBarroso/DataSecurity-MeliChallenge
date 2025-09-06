@@ -33,6 +33,19 @@ except Exception:
 _CACHED_ADVANCED_RETRIEVER: dict[str, any] = {}
 _CACHED_RAG_CHAIN: dict[str, any] = {}
 
+
+def is_valid_api_key(value) -> bool:
+    try:
+        if not isinstance(value, str):
+            return False
+        v = value.strip()
+        if not v:
+            return False
+        bad = {"test", "testing", "dummy", "placeholder", "none", "null", "your_key", "your-api-key", "changeme"}
+        return v.lower() not in bad
+    except Exception:
+        return False
+
 def _build_vectorstore(chroma_path, collection_name, embedding_fn):
     chroma_host = getattr(settings, "CHROMA_DB_HOST", None)
     chroma_port = getattr(settings, "CHROMA_DB_PORT", None)
@@ -60,14 +73,17 @@ def _build_vectorstore(chroma_path, collection_name, embedding_fn):
     )
 
 
-def _make_base_retriever(vectorstore):
-    """Devuelve retriever base con k acorde al modo."""
-    k = 10 if settings.is_turbo else 20
+def _make_base_retriever(vectorstore, is_turbo: bool | None = None):
+    """Devuelve retriever base con k acorde al modo (permite override)."""
+    if is_turbo is None:
+        is_turbo = settings.is_turbo
+    k = 10 if is_turbo else 20
     return vectorstore.as_retriever(search_kwargs={"k": k})
 
 
-def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohere_api_key):
-    mode_key = 'turbo' if settings.is_turbo else 'heavy'
+def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohere_api_key, force_turbo: bool = False):
+    is_turbo_mode = True if force_turbo else settings.is_turbo
+    mode_key = 'turbo' if is_turbo_mode else 'heavy'
     cached = _CACHED_ADVANCED_RETRIEVER.get(mode_key)
     if cached is not None:
         return cached
@@ -91,42 +107,28 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
         )
         logging.info("Usando ParentDocumentRetriever con RedisDocStore para las consultas.")
     else:
-        base_retriever = _make_base_retriever(vectorstore)
+        base_retriever = _make_base_retriever(vectorstore, is_turbo_mode)
         logging.info("Usando retriever de vectorstore simple (sin docstore persistente).")
 
     # 3. MultiQueryRetriever para expansión de consultas (deshabilitado en TURBO)
-    if settings.is_turbo:
+    if is_turbo_mode:
         advanced_retriever = base_retriever
     else:
         llm = ChatOpenAI(model="gpt-4.1-nano", temperature=0, api_key=openai_api_key)
         advanced_retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
 
     # 4. ContextualCompressionRetriever con CohereRerank (opcional; deshabilitado en TURBO)
-    if not settings.is_turbo and cohere_api_key and CohereRerank:
-        # Wrapper simple con cache para Cohere rerank
-        class CachedCompressor:
-            def __init__(self, inner):
-                self.inner = inner
-                self._cache = {}
-            def compress_documents(self, docs, query):
-                try:
-                    ids = tuple(getattr(d, 'metadata', {}).get('id') or hash(getattr(d, 'page_content','')) for d in docs)
-                    key = (query, ids)
-                    if key in self._cache:
-                        return self._cache[key]
-                except Exception:
-                    key = None
-                out = self.inner.compress_documents(docs, query)
-                if key is not None:
-                    self._cache[key] = out
-                return out
-        compressor = CachedCompressor(CohereRerank(
+    if (not is_turbo_mode) and is_valid_api_key(cohere_api_key) and CohereRerank:
+        # Usar directamente CohereRerank como compresor de documentos, que implementa
+        # la interfaz esperada por ContextualCompressionRetriever.
+        compressor = CohereRerank(
             cohere_api_key=cohere_api_key,
             model="rerank-english-v3.0",
             top_n=5,
-        ))
+        )
         ret = ContextualCompressionRetriever(
-            base_compressor=compressor, base_retriever=advanced_retriever
+            base_compressor=compressor,
+            base_retriever=advanced_retriever,
         )
     else:
         if not settings.is_turbo:
@@ -137,8 +139,9 @@ def create_advanced_retriever(chroma_path, collection_name, openai_api_key, cohe
     _CACHED_ADVANCED_RETRIEVER[mode_key] = ret
     return ret
 
-def get_rag_chain():
-    mode_key = 'turbo' if settings.is_turbo else 'heavy'
+def get_rag_chain(force_turbo: bool = False):
+    is_turbo_mode = True if force_turbo else settings.is_turbo
+    mode_key = 'turbo' if is_turbo_mode else 'heavy'
     cached = _CACHED_RAG_CHAIN.get(mode_key)
     if cached is not None:
         return cached
@@ -147,7 +150,8 @@ def get_rag_chain():
         chroma_path=settings.CHROMA_DB_PATH,
         collection_name=settings.COLLECTION_NAME,
         openai_api_key=settings.OPENAI_API_KEY,
-        cohere_api_key=(None if settings.is_turbo else getattr(settings, "COHERE_API_KEY", None))
+        cohere_api_key=(None if is_turbo_mode else getattr(settings, "COHERE_API_KEY", None)),
+        force_turbo=is_turbo_mode,
     )
 
     template = """
@@ -167,7 +171,7 @@ def get_rag_chain():
         model="gpt-4.1-nano",
         temperature=0.1,
         api_key=settings.OPENAI_API_KEY,
-        max_tokens=256 if settings.is_turbo else None,
+        max_tokens=256 if is_turbo_mode else None,
     )
 
     def cosine(a, b):
@@ -216,12 +220,12 @@ def get_rag_chain():
         # Early-exit: si top1 muy alto, evitar fan-out pesado en heavy
         docs = []
         try:
-            if not settings.is_turbo:
+            if not is_turbo_mode:
                 # base retriever top1
                 emb = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
                 qv = emb.embed_query(question)
                 vectorstore = _build_vectorstore(settings.CHROMA_DB_PATH, settings.COLLECTION_NAME, emb)
-                base = _make_base_retriever(vectorstore)
+                base = _make_base_retriever(vectorstore, is_turbo_mode)
                 top1 = base.get_relevant_documents(question)
                 def cosine(a, b):
                     import math
@@ -240,7 +244,7 @@ def get_rag_chain():
         except Exception:
             docs = []
         # Sin MMR en TURBO; en heavy mantenemos MMR si no hay Cohere
-        if not settings.is_turbo and docs:
+        if not is_turbo_mode and docs:
             use_cohere = bool(getattr(settings, "COHERE_API_KEY", None)) and CohereRerank is not None
             if not use_cohere:
                 docs = mmr_rerank(question, docs, top_n=5)

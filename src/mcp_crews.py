@@ -25,14 +25,14 @@ llm = get_llm()
 
 # --- Crew principal de 3 agentes MCP ---
 class SecurityAnalysisCrew:
-    def __init__(self, agent_trace_logger: logging.Logger, llm_instance=None):
+    def __init__(self, agent_trace_logger: logging.Logger, llm_instance=None, turbo: bool | None = None):
         self.agent_trace_logger = agent_trace_logger
         self.llm = llm_instance or llm
-        # Instanciar agentes, permitiendo inyección de llm si es necesario
-        # Siempre pasamos llm_override, ya que ahora los agentes lo aceptan opcionalmente
-        self.analyzer = threat_analyzer_agent(llm_override=self.llm)
-        self.classifier = risk_classifier_agent(llm_override=self.llm)
-        self.reporter = reporting_agent(llm_override=self.llm)
+        self.turbo = turbo if turbo is not None else False
+        # Instanciar agentes con el modo indicado
+        self.analyzer = threat_analyzer_agent(llm_override=self.llm, turbo=self.turbo)
+        self.classifier = risk_classifier_agent(llm_override=self.llm, turbo=self.turbo)
+        self.reporter = reporting_agent(llm_override=self.llm, turbo=self.turbo)
 
     def run(self, user_input: str):
         # 1. Task: Threat analysis
@@ -158,13 +158,13 @@ class SecurityAnalysisCrew:
 
 
 # Wrapper para compatibilidad con tests E2E legacy
-def run_mcp_analysis(user_input: str, agent_trace_logger=None, llm_instance=None):
+def run_mcp_analysis(user_input: str, agent_trace_logger=None, llm_instance=None, turbo: bool | None = None):
     """
     Ejecuta el análisis MCP de 3 agentes y retorna el reporte final en JSON (string).
     Permite inyectar un LLM simulado para testing.
     """
     logger = agent_trace_logger or logging.getLogger("mcp_analysis")
-    crew = SecurityAnalysisCrew(agent_trace_logger=logger, llm_instance=llm_instance)
+    crew = SecurityAnalysisCrew(agent_trace_logger=logger, llm_instance=llm_instance, turbo=bool(turbo))
     result = crew.run(user_input)
     # Normalizar a dict JSON si es posible
     try:

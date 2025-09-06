@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # Configuración de OpenAI
     OPENAI_API_KEY: str
-    OPENAI_MODEL_NAME: str = "gpt-4.1-nano"
+    OPENAI_MODEL_NAME: str = "gpt-4.1-mini"
 
     # Configuración de Cohere (opcional para re-ranking)
     COHERE_API_KEY: str | None = None
