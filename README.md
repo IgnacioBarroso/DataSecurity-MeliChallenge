@@ -173,6 +173,10 @@ Benchmark modos (opcional):
 - Sin Cohere: el reranking MMR está activo y ofrece buena precisión sin costo adicional
 - MCP offline: el sistema continúa con `attackcti` local; para habilitar MCP levanta `mitre-mcp`
 - Ollama: opcional; si no usas LLM local, omite el servicio
+- Turbo devuelve < 5 detectores o el último incompleto:
+  - Asegúrate de usar `OPENAI_MODEL_NAME=gpt-4.1-mini` (recomendado). Modelos muy pequeños pueden truncar salida.
+  - Vuelve a ejecutar el endpoint; el pipeline valida la estructura y reintenta si la respuesta no cumple el esquema.
+  - Si personalizas prompts, evita agregar texto extra (prosa/markdown) para no consumir tokens del JSON final.
 
 ## Cumplimiento del Challenge
 
